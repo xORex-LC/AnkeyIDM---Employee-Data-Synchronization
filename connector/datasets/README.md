@@ -32,6 +32,7 @@
 Переходное состояние:
 
 - `get_source_spec()` — новый accessor декларации источника (`SourceSpec`) без создания adapter.
-- `build_record_source()` — legacy runtime accessor, пока `row_source` ещё не перенесён в source registry / composition root.
+- `build_record_source()` — legacy runtime accessor для обратной совместимости до полного удаления из `DatasetSpec`.
 
-После завершения source-selection change-set `build_record_source()` будет удалён из `DatasetSpec`, а выбор конкретного `RowSource` перейдёт в `delivery` composition root.
+Выбор конкретного `RowSource` выполняется в `delivery` composition root через `SourceAdapterRegistry`.
+После завершения source-selection migration `build_record_source()` будет удалён из `DatasetSpec`.

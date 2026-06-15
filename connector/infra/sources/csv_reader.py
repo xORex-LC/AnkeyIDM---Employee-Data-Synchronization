@@ -1,3 +1,15 @@
+"""Адаптер CSV-источника для extract-стадии.
+
+Назначение:
+    Читает CSV-файл и выдаёт поток `SourceRecord` без знания о датасете и
+    downstream-стадиях.
+
+Граница ответственности:
+    Модуль владеет только file I/O, CSV-парсингом, null-нормализацией и
+    сборщиком текущего CSV-адаптера. Выбор адаптера выполняет
+    `SourceAdapterRegistry` в composition root.
+"""
+
 from __future__ import annotations
 
 import csv
@@ -5,13 +17,21 @@ from pathlib import Path
 from typing import Iterator
 
 from connector.domain.transform.core.source_record import SourceRecord
+from connector.domain.transform_dsl import resolve_source_location
+from connector.domain.transform_dsl.specs import SourceSpec
 from connector.infra.sources.csv_utils import CsvFormatError, parse_null
 
 
 class CsvRecordSource:
-    """
-    Назначение/ответственность:
-        Универсальный CSV-источник: читает строки и отдаёт SourceRecord без привязки к датасету.
+    """Универсальный CSV-источник поверх stdlib `csv`.
+
+    Назначение:
+        Преобразует строки CSV-файла в `SourceRecord` с сохранением текущей
+        семантики номера строки, идентификатора записи и null-нормализации.
+
+    Граница ответственности:
+        Не выбирает источник по DSL и не создаёт `TransformResult`; этим
+        занимаются source registry и `Extractor`.
     """
 
     def __init__(
@@ -62,10 +82,36 @@ class CsvRecordSource:
                     raise CsvFormatError(
                         f"Invalid column count at line {csv_line_no}: expected {expected_len}, got {len(plain_row)}"
                     )
-                values = {f"col_{idx}": parse_null(value) for idx, value in enumerate(plain_row)}
+                values = {
+                    f"col_{idx}": parse_null(value)
+                    for idx, value in enumerate(plain_row)
+                }
                 record = SourceRecord(
                     line_no=csv_line_no,
                     record_id=f"line:{csv_line_no}",
                     values=values,
                 )
                 yield record
+
+
+def build_csv_source(spec: SourceSpec) -> CsvRecordSource:
+    """Построить текущий CSV `RowSource` из декларации `SourceSpec`.
+
+    Контракт:
+        - поддерживается только `type=file`, `format=csv`;
+        - path resolution принадлежит builder'у, а не `DatasetSpec`;
+        - параметры времени выполнения должны передаваться через замыкание
+          регистрации сборщика в `SourceContainer`.
+    """
+    if spec.source.type != "file" or spec.source.format != "csv":
+        raise ValueError(
+            f"{spec.dataset} source spec must be file/csv for current CSV adapter"
+        )
+    source_path = resolve_source_location(spec)
+    csv_options = spec.source.csv_options()
+    return CsvRecordSource(
+        source_path,
+        spec.source.has_header,
+        delimiter=csv_options.delimiter,
+        encoding=csv_options.encoding,
+    )
