@@ -2,16 +2,23 @@
 
 ## Назначение
 
-Интерфейсы источников данных и справочников для pipeline.
+Интерфейсы (порты) transform-конвейера: итерация строк источника, маппинг записи и справочники.
 
 ## Порты
 
 | Файл | Порт | Назначение |
 |---|---|---|
-| `sources.py` | `SourceMapper` | Итерация строк источника (CSV → `SourceRecord`) |
+| `sources.py` | `RowSource` | Итерация строк источника: `__iter__() -> Iterable[SourceRecord]` (extract-seam) |
+| `sources.py` | `SourceMapper[T]` | Порт map-стадии: `map(record: SourceRecord) -> TransformResult[T]` (сырьё → первая доменная строка) |
 | `dictionaries.py` | `DictionaryProviderPort` | `lookup(key, field)`, `contains(key)`, `canonicalize(value)` — поиск в справочнике |
 
 ## Реализация
 
-`SourceMapper` → `infra/sources/csv_reader.py`  
+`RowSource` → `infra/sources/csv_reader.py` (`CsvRecordSource`)
+`SourceMapper` → `domain/transform/mapping/mapper_engine.py` (`MapperEngine`); потребитель — `MapStage` (`domain/transform/stages/stages.py`). Реализация map-порта живёт в `domain` (mapping — доменная DSL-логика), а не в `infra`.
 `DictionaryProviderPort` → `infra/dictionaries/provider.py`
+
+> Примечание: `RowSource` (extract) и `SourceMapper` (map) сейчас соседствуют в одном файле `sources.py`,
+> хотя относятся к разным стадиям. Возможное расщепление по стадиям и ревизия map-абстракции
+> (`Protocol` vs ABC, имя) — предмет отдельного mapping-contract решения, вне extract-рефактора
+> (см. [EXTRACT worknote](../../../../docs/notes/extract/EXTRACT_REFACTOR_WORKNOTE.md)).
