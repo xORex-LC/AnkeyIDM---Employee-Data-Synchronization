@@ -567,11 +567,7 @@ class PipelineOrchestrator:
 # connector/delivery/cli/containers.py или pipeline_registry.py
 
 source_spec = load_source_spec_for_dataset(dataset)
-source_path = resolve_source_location(source_spec)
-has_header = source_spec.source.options.get("has_header_default", True)
-
-# Infra: конкретный источник
-source = PolarsCsvRecordSource(path=source_path, has_header=has_header)
+source = source_adapter_registry.create(source_spec)
 
 # Domain: extractor оборачивает источник
 extractor = Extractor(source=source, catalog=catalog)
@@ -645,9 +641,9 @@ from connector.domain.ports.transform.sources import RowSource, SourceMapper
 
 ## 🛠️ HOW-TO: Добавить новый тип источника
 
-Сейчас реализован только `type: "file"` + `format: "csv"`.
-`SourceConfig` объявляет `type: Literal["file", "db", "api"]` — остальные типы
-готовы к реализации.
+Сейчас реализован только `type: "file"` + `format.kind: "csv"`.
+`SourceConfig` объявляет `type: Literal["file", "db", "api"]`, но новый backend
+становится валидным только после добавления типизированной format-модели и runtime adapter.
 
 ### Шаг 1: Создать ридер
 
@@ -684,32 +680,47 @@ class DbRecordSource:
 
 `RowSource` Protocol удовлетворяется автоматически — `__iter__` возвращает `Iterable[SourceRecord]`.
 
-### Шаг 2: Обновить SourceConfig (если нужны новые опции)
+### Шаг 2: Добавить typed format-модель
 
-В `connector/domain/transform_dsl/specs/source.py` тип `"db"` уже объявлен.
-Если нужны специфичные опции — добавить в `SourceConfig.options: dict[str, Any]`.
-Это schema-less dict, специфичные ключи читаются в ридере.
-
-### Шаг 3: Обновить delivery — dispatch по типу
+В `connector/domain/transform_dsl/specs/source.py` добавить per-format модель и включить её
+в `SourceFormat`. Не добавлять schema-less `options` в `SourceConfig`: формат владеет своими
+полями и валидаторами сам.
 
 ```python
-# connector/delivery/cli/pipeline_registry.py
+class DbSourceFormat(DslBaseModel):
+    kind: Literal["postgres"]
+    query: str
+    connection_ref: str
 
-def _build_source(source_spec: SourceSpec, catalog: ErrorCatalog) -> RowSource:
-    source_type = source_spec.source.type
+
+SourceFormat = Annotated[
+    CsvSourceFormat | DbSourceFormat,
+    Field(discriminator="kind"),
+]
+```
+
+### Шаг 3: Создать builder и зарегистрировать adapter
+
+```python
+# connector/infra/sources/db_reader.py
+
+def build_db_source(source_spec: SourceSpec) -> RowSource:
     source_format = source_spec.source.format
+    if source_spec.source.type != "db" or source_format.kind != "postgres":
+        raise ValueError("source spec must be db/postgres for current DB adapter")
+    return DbRecordSource(
+        connection_string=resolve_secret(source_format.connection_ref),
+        query=source_format.query,
+    )
+```
 
-    if source_type == "file" and source_format == "csv":
-        path = resolve_source_location(source_spec)
-        has_header = source_spec.source.options.get("has_header_default", True)
-        return PolarsCsvRecordSource(path=path, has_header=has_header)
-
-    if source_type == "db":
-        conn_str = resolve_source_location(source_spec)
-        query = source_spec.source.options.get("query", "SELECT * FROM employees")
-        return DbRecordSource(connection_string=conn_str, query=query)
-
-    raise ValueError(f"Unsupported source type: {source_type!r} / format: {source_format!r}")
+```python
+# connector/delivery/cli/containers.py
+source_adapter_registry.register(
+    type="db",
+    format="postgres",
+    builder=build_db_source,
+)
 ```
 
 ### Шаг 4: Обновить YAML
@@ -719,10 +730,13 @@ def _build_source(source_spec: SourceSpec, catalog: ErrorCatalog) -> RowSource:
 dataset: employees
 source:
   type: db
-  location_ref: EMPLOYEES_DB_URL   # "postgresql://user:pass@host/db"
-  options:
+  location: employees-primary
+  format:
+    kind: postgres
+    connection_ref: employees-db
     query: "SELECT * FROM employees WHERE active = true"
   fields:
+    # Advisory: не runtime validation на extract-boundary.
     - name: raw_id
       type: string
       required: true
@@ -835,8 +849,9 @@ NormalizeStage: collected.errors → yield без обработки
 
 ```
 employees/source_2/source.yaml:
-  options:
-    has_header_default: false
+  format:
+    kind: csv
+    has_header: false
 
 employees/source_2/mapping.yaml:
   source_columns: [raw_id, full_name, login, email_or_phone, contacts, ...]

@@ -34,7 +34,7 @@ root, а `datasets` оставить только поставщиком дек�
 Состав решения:
 
 1. **`SourceAdapterRegistry`** (`infra/sources/factory.py`) — реестр builder'ов по ключу
-   `(source.type, source.format)`; `create(spec) → RowSource`.
+   `(source.type, source.format.kind)` после EXTRACT-DEC-002; `create(spec) → RowSource`.
 2. **`DatasetSpec`** отдаёт `get_source_spec() → SourceSpec` вместо `build_record_source()`; из
    `datasets/yaml_spec.py` убирается импорт infra.
 3. **DI-субконтейнер `delivery/cli/sources_container.py`** (по образцу `dictionaries_container`):

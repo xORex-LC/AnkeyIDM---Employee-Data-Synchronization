@@ -114,13 +114,19 @@ MapDslBuildOptions ─┘
 **Файл:** `connector/domain/transform_dsl/specs/source.py`
 
 ```python
+class CsvSourceFormat(DslBaseModel):
+    kind: Literal["csv"] = "csv"         # discriminator SourceFormat
+    delimiter: str = ","
+    encoding: str = "utf-8-sig"
+    has_header: bool = False
+
+SourceFormat = Annotated[CsvSourceFormat, Field(discriminator="kind")]
+
 class SourceConfig(DslBaseModel):
     type: Literal["file", "db", "api"]   # "db" и "api" — объявлены, не реализованы
-    format: str | None = None            # "csv"
-    location: str | None = None          # Прямой путь к файлу
-    location_ref: str | None = None      # Имя env-переменной (приоритет над location)
-    options: dict[str, Any] = {}         # delimiter, encoding, has_header_default
-    fields: list[SourceFieldSpec] = []   # Описание полей входного источника
+    location: str | None = None          # Ref внутри source_data_root или absolute path
+    format: SourceFormat                 # Типизированный format-блок
+    fields: list[SourceFieldSpec] = []   # Advisory-описание полей источника
 
 class SourceSpec(DslBaseModel):
     dataset: str
@@ -137,15 +143,17 @@ class SourceFieldSpec(DslBaseModel):
 **Разрешение пути источника** (`resolve_source_location(spec)` в `loader.py`):
 
 ```
-1. Если задан location_ref → os.getenv(location_ref)
-   → если значение непустое → использовать как путь
-2. Иначе → spec.source.location
-   → если непустое → использовать как путь
-3. Ни то, ни другое → DslLoadError("source location is not configured")
+1. Если source.location задан и type=file:
+   → относительный путь резолвится через runtime source_data_root
+   → absolute path допускается как explicit escape hatch
+2. Если source.location задан и type!=file:
+   → вернуть строку location без path-resolution
+3. Если location пустой:
+   → DslLoadError("source location is not configured")
 ```
 
-`location_ref` позволяет хранить путь в env-переменной (`EMPLOYEES_SOURCE_PATH`)
-вместо хардкода в YAML — необходимо для разных окружений (dev/prod).
+Process ENV не участвует в runtime path resolution. Окружение выбирается через
+runtime registry/projection roots и `source_data_root`.
 
 ### MappingSpec — правила трансформации
 
@@ -393,17 +401,14 @@ datasets:
 
 ```python
 def resolve_source_location(spec: SourceSpec) -> str:
-    ref = spec.source.location_ref
-    if ref:
-        ref_value = os.getenv(ref)
-        if ref_value and ref_value.strip():
-            return ref_value.strip()
     location = spec.source.location
     if location and location.strip():
+        if spec.source.type == "file":
+            return str(_resolve_source_data_path(location))
         return location.strip()
     raise DslLoadError(
         code="SOURCE_DSL_LOCATION_INVALID",
-        message="source location is not configured (location_ref/location)",
+        message="source location is not configured",
         details={"dataset": spec.dataset},
     )
 ```
@@ -676,13 +681,14 @@ mapping:
 dataset: employees
 source:
   type: file
-  format: csv
-  location_ref: EMPLOYEES_SOURCE_PATH   # путь из env
-  options:
+  location: source_employees.csv        # ref внутри runtime source_data_root
+  format:
+    kind: csv                           # discriminator SourceFormat
     delimiter: ","
     encoding: "utf-8-sig"               # снимает BOM автоматически
-    has_header_default: false           # CSV без заголовка
+    has_header: false                   # CSV без заголовка
   fields:
+    # Advisory: описывает контракт, но не валидирует строки на extract-boundary.
     - name: raw_id
       type: string
       required: true
@@ -783,7 +789,7 @@ sink:
 
 ### source_columns и позиционный fallback
 
-`source_columns` критичен при `has_header_default: false` (CSV без заголовка):
+`source_columns` критичен при `source.format.has_header: false` (CSV без заголовка):
 
 ```
 source_columns: [raw_id, full_name, login, ...]
@@ -860,9 +866,9 @@ Pydantic model_validator проверяет: если `source` и `sources` от
 
 **Как добавить поддержку нового типа источника (`type: "db"`)?**
 
-Только в `connector/infra/sources/` — нужно создать новый ридер, реализующий
-`RowSource` Protocol. Сам DSL-слой (`SourceSpec`) уже объявляет `type: "file" | "db" | "api"`,
-поэтому изменений в specs не требуется.
+Нужно добавить новую per-format модель в `SourceFormat`, реализовать `RowSource`
+в `connector/infra/sources/` и зарегистрировать builder в composition root.
+Одного `type: "db"` недостаточно: неизвестный `format.kind` должен падать на spec-load.
 
 **Зачем `sink.system_fields` отдельно от `fields`?**
 

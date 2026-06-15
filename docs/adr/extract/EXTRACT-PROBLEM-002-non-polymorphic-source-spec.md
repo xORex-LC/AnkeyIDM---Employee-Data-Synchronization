@@ -1,6 +1,6 @@
 # EXTRACT-PROBLEM-002: Spec источника не полиморфен по типу — db/api непредставимы в рантайме
 
-> **Статус**: Открыта
+> **Статус**: Решена в [EXTRACT-DEC-002](./EXTRACT-DEC-002-polymorphic-source-spec-typed-format-blocks.md)
 > **Дата создания**: 2026-06-15
 > **Затронутые компоненты**: `SourceConfig`, `CsvSourceOptions`, `SourceFieldSpec`, `SourceSpec`, `resolve_source_location`, `connector/domain/transform_dsl/specs/source.py`, `connector/domain/transform_dsl/loader.py`
 
@@ -95,6 +95,7 @@ Spec источника моделирует только файловый CSV-�
 
 ## 🔗 Связанные документы
 
+- [EXTRACT-DEC-002](./EXTRACT-DEC-002-polymorphic-source-spec-typed-format-blocks.md) — принятое решение
 - [EXTRACT-PROBLEM-001](./EXTRACT-PROBLEM-001-source-selection-hardcoded-and-cross-layer-coupling.md) — шов выбора источника
 - [EXTRACT_REFACTOR_WORKNOTE](../../notes/extract/EXTRACT_REFACTOR_WORKNOTE.md) — анализ и дорожная карта
 - `connector/domain/transform_dsl/specs/source.py` — `SourceConfig`, `CsvSourceOptions`, `SourceFieldSpec`
@@ -108,3 +109,4 @@ Spec источника моделирует только файловый CSV-�
 | Дата | Событие |
 |------|---------|
 | 2026-06-15 | Проблема зафиксирована |
+| 2026-06-15 | Решение принято в [EXTRACT-DEC-002](./EXTRACT-DEC-002-polymorphic-source-spec-typed-format-blocks.md) |

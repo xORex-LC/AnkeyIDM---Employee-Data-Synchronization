@@ -14,7 +14,7 @@
 
 | Файл | Назначение |
 |---|---|
-| `factory.py` | `SourceAdapterRegistry` и `SourceBuilder` — выбор `RowSource` по ключу `(source.type, source.format)` |
+| `factory.py` | `SourceAdapterRegistry` и `SourceBuilder` — выбор `RowSource` по ключу `(source.type, source.format.kind)` |
 | `csv_reader.py` | `PolarsCsvRecordSource` — реализует `RowSource`: читает CSV через `polars.scan_csv().collect_batches()`, итерирует батчи как `SourceRecord`; учитывает `delimiter`, `encoding`, header/headerless-режим, BOM в первом заголовке, null/trim-нормализацию; пустые строки источника не пропускаются |
 
 ## Зависимости
