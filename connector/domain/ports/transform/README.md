@@ -14,7 +14,7 @@
 
 ## Реализация
 
-`RowSource` → `infra/sources/csv_reader.py` (`CsvRecordSource`)
+`RowSource` → `infra/sources/csv_reader.py` (`PolarsCsvRecordSource`)
 `SourceMapper` → `domain/transform/mapping/mapper_engine.py` (`MapperEngine`); потребитель — `MapStage` (`domain/transform/stages/stages.py`). Реализация map-порта живёт в `domain` (mapping — доменная DSL-логика), а не в `infra`.
 `DictionaryProviderPort` → `infra/dictionaries/provider.py`
 

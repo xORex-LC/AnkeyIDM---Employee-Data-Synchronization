@@ -40,10 +40,10 @@ root, а `datasets` оставить только поставщиком дек�
 3. **DI-субконтейнер `delivery/cli/sources_container.py`** (по образцу `dictionaries_container`):
    владеет реестром, явно регистрирует CSV-builder, предоставляет провайдер `row_source`.
 4. **polars-адаптер** `PolarsCsvRecordSource` (`infra/sources/csv_reader.py`) на
-   `pl.read_csv_batched` + builder `build_csv_source(spec)` co-located в модуле адаптера.
+   `pl.scan_csv().collect_batches()` + builder `build_csv_source(spec)` co-located в модуле адаптера.
 5. **`ExtractConfig.read_batch_size`** в `AppConfig` (операционный knob, не DSL).
 6. **Снятие `ignore_imports`** в `pyproject.toml` + architecture-тест границы `datasets → infra`.
-7. **Фаза 0 (housekeeping)**: фикс stale-доков (`infra/sources/README.md`, CLAUDE.md §7) — описание
+7. **Фаза 0 (housekeeping)**: фикс stale-доков (`infra/sources/README.md`) — описание
    CSV-источника как реализующего `SourceMapper` на polars неверно: source-адаптер реализует
    `RowSource`. **`SourceMapper` НЕ трогаем** — это живой порт map-стадии (см. scope-out ниже).
 
@@ -67,7 +67,7 @@ root, а `datasets` оставить только поставщиком дек�
   переезжает в субконтейнер.
 - `pyproject.toml` — удалён `ignore_imports` `datasets.yaml_spec -> infra.sources.csv_reader`.
 - `examples/configs/config_example.yml` — секция `extract`.
-- Фаза 0 (только доки): `connector/infra/sources/README.md`, CLAUDE.md §7.
+- Фаза 0 (только доки): `connector/infra/sources/README.md`.
   `connector/domain/ports/transform/sources.py` **не меняется** (`SourceMapper` — живой порт map-стадии).
 
 ### Интерфейсы
@@ -100,7 +100,7 @@ DatasetSpec.get_source_spec() → SourceSpec
         ↓ (sources_container, composition root)
 SourceAdapterRegistry.create(spec)  [ключ (type, format)] → RowSource
         ↓
-PolarsCsvRecordSource (pl.read_csv_batched → batch.iter_rows → SourceRecord)
+PolarsCsvRecordSource (pl.scan_csv().collect_batches() → batch.iter_rows → SourceRecord)
         ↓
 Extractor(row_source, catalog)  → TransformResult[None]   (domain, без изменений)
 ```
@@ -124,7 +124,7 @@ Extractor(row_source, catalog)  → TransformResult[None]   (domain, без из
   explicit-wiring в composition root — цена за тестируемость и трассируемость).
 - ⚠️ Меняется Protocol-контракт `DatasetSpec` (`build_record_source` → `get_source_spec`) — но
   единственный потребитель `row_source`-провайдер (малый блейст-радиус).
-- ⚠️ polars `read_csv` eager; для streaming используем `read_csv_batched` (чуть сложнее прямого чтения,
+- ⚠️ polars `read_csv` eager; для streaming используем `scan_csv().collect_batches()` (чуть сложнее прямого чтения,
   но сохраняет bounded-memory контракт).
 
 **Альтернативы, которые отклонили**:
@@ -135,7 +135,7 @@ Extractor(row_source, catalog)  → TransformResult[None]   (domain, без из
   это операционный knob, а не контракт данных; место в AppConfig (прецедент
   `resolver.resolve_batch_size`, `matching_runtime.match_batch_size`) (разбор ОВ-1.3).
 - ❌ **`scan_csv().collect(streaming=True)` для построчной выдачи**: материализует полный DataFrame
-  перед итерацией строк — теряется bounded-memory; `read_csv_batched` корректнее для row-stream.
+  перед итерацией строк — теряется bounded-memory; `scan_csv().collect_batches()` корректнее для row-stream.
 - ❌ **Оставить выбор в `datasets` за локальной абстракцией**: не снимает cross-layer импорт infra и
   `ignore_imports` (Вариант 2 в PROBLEM-001).
 - ❌ **Гранулярные коды ошибок (`SOURCE_READ_FAILED`/`SOURCE_PARSE_FAILED`) уже сейчас**: их владелец —
@@ -161,7 +161,7 @@ Extractor(row_source, catalog)  → TransformResult[None]   (domain, без из
 | `connector/config/models.py` | `ExtractConfig.read_batch_size`; включён в `AppConfig` |
 | `examples/configs/config_example.yml` | Секция `extract:` |
 | `pyproject.toml` | Удалён `ignore_imports` для `datasets.yaml_spec -> infra.sources.csv_reader` |
-| `connector/infra/sources/README.md`, `CLAUDE.md` | Фаза 0: актуализация (polars; source-адаптер реализует `RowSource`, а не `SourceMapper`) |
+| `connector/infra/sources/README.md` | Фаза 0: актуализация (polars; source-адаптер реализует `RowSource`, а не `SourceMapper`) |
 | `tests/unit/sources/`, `tests/integration/sources/`, `tests/architecture/` | Новые тесты (см. Валидация) |
 
 ### Инварианты
@@ -172,6 +172,8 @@ Extractor(row_source, catalog)  → TransformResult[None]   (domain, без из
 3. **Streaming**: пик памяти адаптера ограничен `read_batch_size`, а не размером файла.
 4. **Паритет идентичности/строк**: `record_id = "line:{n}"`, нумерация строк сохраняет текущую
    семантику (header → старт со 2, headerless → со 1); headerless-колонки именуются `col_{i}`.
+   Пустые строки источника **не пропускаются** — эмитятся как запись со всеми `None` с сохранением
+   выравнивания `line_no` по физической строке.
 5. **Поведение ошибок**: ошибки чтения/парсинга оборачиваются в `SOURCE_ERROR` существующей границей
    `Extractor` (гранулярность — в P-003).
 
@@ -203,6 +205,9 @@ Extractor(row_source, catalog)  → TransformResult[None]   (domain, без из
 **Известные ограничения**:
 - В объёме DEC-001 поддержан только `file/csv` (один зарегистрированный builder); полиморфный spec для
   db/api — P-002, внутренняя декомпозиция адаптера — P-003.
+- Streaming path на `polars.scan_csv().collect_batches()` поддерживает только UTF-8-совместимые кодировки
+  (`utf-8`, `utf-8-sig`). Произвольные Python-codec из `SourceSpec.encoding` требуют отдельной
+  стратегии чтения в P-002/P-003.
 - `record_id` остаётся позиционным (`line:{n}`) — контентный id вне объёма (P-003).
 - Единый код ошибки `SOURCE_ERROR` — гранулярность откладывается до P-003.
 
@@ -218,7 +223,7 @@ Extractor(row_source, catalog)  → TransformResult[None]   (domain, без из
 **Риски**:
 - ⚠️ Регресс null-семантики при переходе на polars `null_values` → **Митигация**: unit-тесты паритета
   до удаления `parse_null`; покрыть пограничные кейсы.
-- ⚠️ Рост пика памяти из-за eager-чтения → **Митигация**: `read_csv_batched` по умолчанию;
+- ⚠️ Рост пика памяти из-за eager-чтения → **Митигация**: `scan_csv().collect_batches()` по умолчанию;
   `read_batch_size` из конфига; smoke на большом CSV; дефолт (10k) финализировать бенчем.
 - ⚠️ Смена Protocol `DatasetSpec` ломает потребителей/фейки → **Митигация**: греп `build_record_source`
   перед удалением; единственный реальный потребитель — `row_source`-провайдер; обновить fakes.
@@ -242,10 +247,12 @@ Extractor(row_source, catalog)  → TransformResult[None]   (domain, без из
 
 ## 📚 Документация
 
-**Будет обновлено в рамках реализации**:
-- ⏳ `connector/infra/sources/README.md` — polars-адаптер, реализует `RowSource`, `SourceAdapterRegistry`.
-- ⏳ `connector/delivery/cli/README.md` — упоминание `sources_container`.
-- ⏳ `examples/configs/config_example.yml` — секция `extract`.
+**Обновлено в рамках реализации**:
+- ✅ `connector/infra/sources/README.md` — polars-адаптер (`scan_csv().collect_batches()`), реализует `RowSource`, `SourceAdapterRegistry`.
+- ✅ `connector/delivery/cli/README.md` — `sources_container`.
+- ✅ `connector/datasets/README.md` — «Extract source seam» (без `build_record_source`).
+- ✅ `connector/domain/ports/transform/README.md`, `connector/infra/README.md` — `RowSource`/`PolarsCsvRecordSource`.
+- ✅ `examples/configs/config_example.yml` — секция `extract`.
 
 ---
 
@@ -265,3 +272,4 @@ Extractor(row_source, catalog)  → TransformResult[None]   (domain, без из
 |------|---------|
 | 2026-06-15 | Решение предложено (дизайн в worknote, фазы 0–1) |
 | 2026-06-15 | Открытые вопросы ОВ-1.1…1.5 закрыты; решение принято |
+| 2026-06-15 | Реализовано (CS0–CS5). Streaming-примитив: `scan_csv().collect_batches()` (вместо deprecated `read_csv_batched`). Сохранение пустых строк источника зафиксировано тестом. |

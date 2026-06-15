@@ -68,6 +68,9 @@ dataset:
   registry_path: "./datasets/employees.registry.yaml"
   include_deleted: false
 
+extract:
+  read_batch_size: 10000
+
 execution:
   stop_on_first_error: false
   max_actions: null

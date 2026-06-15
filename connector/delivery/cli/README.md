@@ -11,7 +11,7 @@
 | `app.py` | Typer-приложение с корневым callback (опции конфига, run-id, pipeline-run-id, dataset, vault) и sub-app'ами: `cache_app`, `import_app`, `maintenance_app`, `obs_app`, `user_app`, `vault_management_app` |
 | `containers.py` | DI-контейнеры (`dependency-injector`): `SqliteContainer`, `CacheContainer`, `TargetContainer`, `VaultContainer`, `ObservabilityContainer`, `PipelineContainer` и др.; observability runtime и ledger backend конфигурируются здесь по lifecycle-типам |
 | `dictionaries_container.py` | Отдельный DI-контейнер для справочников (выделен из-за объёма и независимости) |
-| `sources_container.py` | Отдельный DI-контейнер source runtime: реестр source adapter'ов, регистрация CSV builder, provider `row_source` |
+| `sources_container.py` | Отдельный DI-контейнер source runtime: реестр source adapter'ов, регистрация CSV builder, provider `row_source`; прокидывает `extract.read_batch_size` в CSV-builder через DI |
 | `context.py` | `BoundCommandContext` — typed runtime context, передаваемый в каждый handler |
 | `component_mapping.py` | `component_for_command()` — разрешение CLI-команды в `ServiceComponent`, включая observability-команды `maintenance-prune` / `obs-*` |
 | `interaction.py` | `confirm_with_gate()` / `prompt_secret_with_gate()` — единая точка user-facing prompt-вызовов, синхронизированная с `InteractiveIoGate` |

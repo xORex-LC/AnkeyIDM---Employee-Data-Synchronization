@@ -7,7 +7,7 @@
 В текущей архитектуре Extract — это не обычная `StageContract` стадия внутри `PipelineOrchestrator`.
 Он состоит из двух слоёв:
 
-- `CsvRecordSource` в `connector/infra/sources/csv_reader.py` — file I/O, CSV parsing, null
+- `PolarsCsvRecordSource` в `connector/infra/sources/csv_reader.py` — file I/O, CSV parsing, null
   normalization, structural CSV failures;
 - `Extractor` в `connector/domain/transform/core/extractor.py` — stream boundary, wrapping
   `SourceRecord` в `TransformResult`, conversion source exceptions → `SOURCE_ERROR`.
@@ -35,8 +35,8 @@
 | `resolve_source_location()` | `source-resolved`, logical source location → runtime path |
 | `DatasetSpec.get_source_spec()` | source DSL declaration is available without constructing a runtime adapter |
 | `SourceAdapterRegistry.create()` | source adapter selected from preloaded `SourceSpec` |
-| `CsvRecordSource.__iter__()` | `source-read-started`, `source-header-read`, `source-record-read`, `source-read-completed`, `source-read-failed` |
-| `CsvFormatError` | structural source failure; map to `source-read-failed` with `error.code=SOURCE_ERROR` or future CSV-specific code |
+| `PolarsCsvRecordSource.__iter__()` | `source-read-started`, `source-header-read`, `source-record-read`, `source-read-completed`, `source-read-failed` |
+| Polars CSV read exceptions | structural/source parser failure; map to `source-read-failed` with `error.code=SOURCE_ERROR` or future CSV-specific code |
 | `Extractor.run()` | `source-stream-wrapped`, `source-stream-failed`; converts source exception to `DiagnosticStage.EXTRACT` / `SOURCE_ERROR` |
 | `SourceRecord(line_no, record_id, values)` | `nexus.record.*`, field/null counters only; raw values are forbidden |
 
@@ -102,12 +102,12 @@
 | `nexus.source.missing_columns_count`, `nexus.source.extra_columns_count` | recommended for contract evaluation | counts only; raw names optional and normally not emitted |
 | `nexus.source.records_total` | required on completion/failure when known | records yielded before completion/failure |
 | `nexus.source.blank_rows_skipped` | recommended | aggregate skipped blank rows |
-| `nexus.source.rows_with_nulls` | recommended | count rows where `parse_null()` produced at least one null |
+| `nexus.source.rows_with_nulls` | recommended | count rows where source-boundary normalization produced at least one null |
 | `nexus.source.null_values_total` | recommended | aggregate null-normalized values |
 | `nexus.source.record.fields_count` | optional per-record | count of fields in one `SourceRecord.values` |
 | `nexus.source.record.null_fields_count` | optional per-record | count of nulls in one record; no values |
 | `nexus.source.failure.line_no` | required on structural row failures when known | CSV line where parsing failed |
-| `nexus.source.failure.expected_columns`, `nexus.source.failure.actual_columns` | recommended on column mismatch | counts from `CsvFormatError` context if parsed |
+| `nexus.source.failure.expected_columns`, `nexus.source.failure.actual_columns` | recommended on column mismatch | counts from parser context if a future classifier exposes them |
 | `nexus.source.failure.layer` | recommended on failures | `dsl`, `resolver`, `reader`, `extractor` |
 | `nexus.source.reason` | recommended on failure/degraded events | `file_not_found`, `missing_header`, `column_count_mismatch`, `decode_error`, ... |
 | `nexus.diagnostic.code` | recommended on `source-stream-failed` | current diagnostic code: `SOURCE_ERROR` |
@@ -135,10 +135,10 @@
 
 - `SourceSpec.source` already provides type, format, location, has_header and CSV options.
 - `resolve_source_location()` already returns runtime path and can populate `source-resolved`.
-- `CsvRecordSource` already knows path, delimiter, encoding, header mode, line numbers and field counts.
-- `parse_null()` makes null counters cheap to compute during row materialization.
-- `CsvFormatError` messages already include line number and expected/actual column counts for mismatch;
-  structured fields can be added without changing domain semantics.
+- `PolarsCsvRecordSource` already knows path, delimiter, encoding, header mode, line numbers and field counts.
+- Source-boundary null normalization makes null counters cheap to compute during row materialization.
+- Parser failures currently cross the `Extractor` boundary as `SOURCE_ERROR`; structured
+  expected/actual column fields require the future source error classifier.
 - `Extractor.run()` already has the `SOURCE_ERROR` boundary and can populate `source-stream-failed`.
 
 ### Что останется на будущие зоны

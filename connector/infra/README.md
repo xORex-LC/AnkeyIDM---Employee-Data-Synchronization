@@ -16,7 +16,7 @@
 | `secrets/` | `SqliteVaultRepository`, `FernetEnvelopeCipher`, `CompositeSecretProvider` |
 | `target/` | `TargetGateway`, `TargetKernel`, HTTP-транспорт, Ankey-провайдер |
 | `dictionaries/` | `PolarsDictionaryProvider`, `CsvDictionaryLoader` |
-| `sources/` | `SourceAdapterRegistry`, `CsvRecordSource` — extract source adapters behind `RowSource` |
+| `sources/` | `SourceAdapterRegistry`, `PolarsCsvRecordSource` — extract source adapters behind `RowSource` |
 | `polars/` | Shared Polars adapters для vectorized исполнения transport-neutral domain contracts |
 | `topology/` | `SqliteTopologyTargetReader` — cache-backed adapter для target topology read seam |
 | `logging/` | Structlog runtime (`StructuredLoggingRuntime`, redaction, daily+size file sink) + legacy compatibility helpers для старых logger call-sites |

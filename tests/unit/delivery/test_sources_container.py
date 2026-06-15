@@ -12,10 +12,11 @@ from __future__ import annotations
 
 import pytest
 
+from connector.config.models import AppConfig, ExtractConfig
 from connector.delivery.cli.containers import PipelineContainer
 from connector.delivery.cli.sources_container import SourceContainer
 from connector.domain.transform_dsl.specs import SourceSpec
-from connector.infra.sources.csv_reader import CsvRecordSource
+from connector.infra.sources.csv_reader import PolarsCsvRecordSource
 
 
 class _DatasetSpec:
@@ -54,15 +55,17 @@ def test_source_container_builds_row_source_from_source_spec(tmp_path):
     csv_path.write_text("id;name\n001;Ivan\n", encoding="utf-8")
     dataset_spec = _DatasetSpec(_source_spec(str(csv_path)))
     container = SourceContainer()
+    container.app_config.override(AppConfig(extract=ExtractConfig(read_batch_size=123)))
     container.dataset_spec.override(dataset_spec)
 
     row_source = container.row_source()
 
-    assert isinstance(row_source, CsvRecordSource)
+    assert isinstance(row_source, PolarsCsvRecordSource)
     assert row_source.path == str(csv_path)
     assert row_source.has_header is True
     assert row_source.delimiter == ";"
     assert row_source.encoding == "utf-8-sig"
+    assert row_source.read_batch_size == 123
     assert dataset_spec.get_source_spec_calls == 1
 
 
@@ -72,10 +75,12 @@ def test_pipeline_row_source_delegates_to_sources_subcontainer(tmp_path):
     csv_path.write_text("id;name\n001;Ivan\n", encoding="utf-8")
     dataset_spec = _DatasetSpec(_source_spec(str(csv_path)))
     container = PipelineContainer()
+    container.app_config.override(AppConfig(extract=ExtractConfig(read_batch_size=321)))
     container.dataset_spec.override(dataset_spec)
 
     row_source = container.row_source()
 
-    assert isinstance(row_source, CsvRecordSource)
+    assert isinstance(row_source, PolarsCsvRecordSource)
     assert row_source.path == str(csv_path)
+    assert row_source.read_batch_size == 321
     assert dataset_spec.get_source_spec_calls == 1

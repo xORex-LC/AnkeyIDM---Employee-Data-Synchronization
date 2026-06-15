@@ -4,28 +4,32 @@
 
 Чтение данных из источника и выдача строк как `SourceRecord`. Модуль реализует порт **`RowSource`**
 (extract-seam: итерация строк источника), а **не** map-порт `SourceMapper`. Текущая реализация — CSV
-на stdlib `csv`.
+на `polars.scan_csv().collect_batches()` (streaming, bounded-memory).
 
 В рамках `EXTRACT-DEC-001` выбор источника вынесен в `SourceAdapterRegistry`, а composition root
-регистрирует текущий CSV-builder явно. Backend пока остаётся stdlib `csv`; миграция чтения на polars
-идёт отдельным change-set.
+регистрирует текущий CSV-builder явно. Размер батча чтения задаётся операционным параметром
+`AppConfig.extract.read_batch_size` и прокидывается в builder через DI-замыкание.
 
 ## Файлы
 
 | Файл | Назначение |
 |---|---|
 | `factory.py` | `SourceAdapterRegistry` и `SourceBuilder` — выбор `RowSource` по ключу `(source.type, source.format)` |
-| `csv_reader.py` | `CsvRecordSource` — реализует `RowSource`: читает CSV через stdlib `csv` (`DictReader` / headerless `reader`), итерирует строки как `SourceRecord`; учитывает `delimiter`, `encoding`, null-нормализацию |
-| `csv_utils.py` | `CsvFormatError` (структурная ошибка CSV: количество колонок и т.п.) и `parse_null` (пустые/`"null"` → `None`, trim) |
+| `csv_reader.py` | `PolarsCsvRecordSource` — реализует `RowSource`: читает CSV через `polars.scan_csv().collect_batches()`, итерирует батчи как `SourceRecord`; учитывает `delimiter`, `encoding`, header/headerless-режим, BOM в первом заголовке, null/trim-нормализацию; пустые строки источника не пропускаются |
 
 ## Зависимости
 
-**Зависит от:** stdlib `csv`; `domain/transform/core/source_record.py` (контракт `SourceRecord`);
+**Зависит от:** `polars`; `domain/transform/core/source_record.py` (контракт `SourceRecord`);
 `domain/ports/transform/sources.py` (`RowSource`); `domain/transform_dsl/specs` (`SourceSpec`).
 **Используется:** `delivery/cli/sources_container.py` через `SourceAdapterRegistry`.
 
 ## Правило
 
 Domain и usecases работают с `dict` / `SourceRecord`, не со специфичными для источника объектами.
-(После миграции на polars по EXTRACT-DEC-001 действует общее правило: polars DataFrame создаётся
-только здесь, в `infra/`.)
+`polars` DataFrame создаётся только здесь, в `infra/`, и не пересекает границу `RowSource`.
+
+## Ограничения
+
+Streaming-ридер Polars в текущем adapter path поддерживает только UTF-8-совместимые кодировки
+(`utf-8`, `utf-8-sig`). Источники с другими Python-codec требуют отдельной стратегии чтения в рамках
+следующих решений по source-spec/source-adapter декомпозиции.

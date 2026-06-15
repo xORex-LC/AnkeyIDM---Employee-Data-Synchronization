@@ -1,6 +1,6 @@
 # Mapper Core — чтение источника, применение правил и интеграция с pipeline
 
-> **Mapper Core** — runtime-ядро mapper-слоя: читает данные из источника (`CsvRecordSource`),
+> **Mapper Core** — runtime-ядро mapper-слоя: читает данные из источника (`PolarsCsvRecordSource`),
 > оборачивает их в `SourceRecord` (`Extractor`), применяет DSL-правила (`MapperCore`) и
 > передаёт `TransformResult[Mapping[str, Any]]` следующей стадии pipeline.
 
@@ -34,7 +34,7 @@ Mapper-слой — первая стадия transform-pipeline. Он отве�
 
 ```
 CSV файл
-  → CsvRecordSource.__iter__()         # infra: читает строки CSV
+  → PolarsCsvRecordSource.__iter__()   # infra: читает строки CSV батчами
       → SourceRecord(line_no, values)  # domain: иммутабельная запись
           → Extractor.run()            # domain: оборачивает в TransformResult[None]
               → MapStage.run()         # domain/stages: вызывает mapper
@@ -66,7 +66,7 @@ CSV файл
 
 ```
 infra/sources/                    domain/ports/transform/
-  CsvRecordSource                   RowSource (Protocol)
+  PolarsCsvRecordSource             RowSource (Protocol)
         ↓ SourceRecord              SourceMapper (base class)
         ↓                                  ↑
 domain/transform/core/            domain/transform/mapping/
@@ -86,7 +86,7 @@ domain/transform/stages/
 | Компонент | Слой | Ответственность |
 |-----------|------|-----------------|
 | `RowSource` | domain/ports | Протокол любого итерируемого источника записей |
-| `CsvRecordSource` | infra/sources | Чтение CSV в `SourceRecord` |
+| `PolarsCsvRecordSource` | infra/sources | Чтение CSV в `SourceRecord` |
 | `SourceRecord` | domain/transform/core | Иммутабельная запись из источника |
 | `Extractor` | domain/transform/core | Оборачивает `RowSource` → `TransformResult[None]`, перехватывает ошибки источника |
 | `SourceMapper` | domain/ports | Base class для маппера (`map(record) -> TransformResult`) |
@@ -110,7 +110,7 @@ class RowSource(Protocol):
 ```
 
 Structural typing — любой класс с `__iter__() -> Iterable[SourceRecord]` удовлетворяет
-протоколу без явного наследования. `CsvRecordSource` реализует его именно так.
+протоколу без явного наследования. `PolarsCsvRecordSource` реализует его именно так.
 
 ### SourceMapper
 
@@ -138,7 +138,7 @@ class SourceRecord:
     values: Mapping[str, Any]     # column_name → value (именованные или col_N)
 ```
 
-Создаётся в `CsvRecordSource.__iter__()` и **не изменяется** на всём пути pipeline.
+Создаётся в `PolarsCsvRecordSource.__iter__()` и **не изменяется** на всём пути pipeline.
 Все downstream-стадии могут обратиться к оригинальным данным через `result.record.values`.
 
 ### TransformResult[T]
@@ -283,7 +283,7 @@ class TransformResultBuilder(Generic[T]):
 
 ## 📊 Ключевые методы и алгоритмы
 
-### CsvRecordSource — чтение CSV
+### PolarsCsvRecordSource — чтение CSV
 
 **Файл:** `connector/infra/sources/csv_reader.py`
 
@@ -292,11 +292,9 @@ class TransformResultBuilder(Generic[T]):
 #### Режим с заголовком (`has_header=True`)
 
 ```python
-reader = csv.DictReader(f, delimiter=",")
-for csv_line_no, row in enumerate(reader, start=2):  # строка 1 — заголовок
-    if None in row:  # лишние колонки
-        raise CsvFormatError(f"Invalid column count at line {csv_line_no}: ...")
-    values = {key: parseNull(row.get(key)) for key in row}
+reader = pl.scan_csv(path, has_header=True, infer_schema_length=0, ...).collect_batches()
+for csv_line_no, row in enumerate_rows_from_batches(reader, start=2):  # строка 1 — заголовок
+    values = {key: normalize_source_value(row.get(key)) for key in row}
     yield SourceRecord(line_no=csv_line_no, record_id=f"line:{csv_line_no}", values=values)
 ```
 
@@ -305,22 +303,20 @@ for csv_line_no, row in enumerate(reader, start=2):  # строка 1 — заг
 #### Режим без заголовка (`has_header=False`)
 
 ```python
-reader = csv.reader(f, delimiter=",")
-expected_len: int | None = None
-for csv_line_no, row in enumerate(reader, start=1):  # нумерация с 1
-    if expected_len is None:
-        expected_len = len(row)
-    elif len(row) != expected_len:
-        raise CsvFormatError(f"Invalid column count at line {csv_line_no}: ...")
-    values = {f"col_{idx}": parseNull(value) for idx, value in enumerate(row)}
+reader = pl.scan_csv(path, has_header=False, infer_schema_length=0, ...).collect_batches()
+for csv_line_no, row in enumerate_rows_from_batches(reader, start=1):  # нумерация с 1
+    values = {
+        f"col_{idx}": normalize_source_value(value)
+        for idx, value in enumerate(row.values())
+    }
     yield SourceRecord(line_no=csv_line_no, record_id=f"line:{csv_line_no}", values=values)
 ```
 
 Ключи `values` — позиционные: `{"col_0": "u-001", "col_1": "Иванов"}`.
-Первая строка задаёт ожидаемую длину; последующие строки с другой длиной → `CsvFormatError`.
 
-**`parseNull(value)`** (из `csv_utils.py`) — конвертирует пустую строку `""` в `None`.
-Кодировка `utf-8-sig` автоматически снимает BOM в UTF-8 файлах.
+Source-boundary normalization делает `strip()` для всех значений и переводит `""` /
+case-insensitive `"null"` в `None`. `infer_schema_length=0` сохраняет строковый контракт
+и ведущие нули. UTF-8 BOM снимается с первой колонки явно.
 
 ### Extractor.run() — оборачивание источника
 
@@ -347,7 +343,7 @@ def run(self) -> Iterable[TransformResult[None]]:
         )
 ```
 
-Ключевой момент: если источник бросает исключение (`CsvFormatError`, `IOError`, etc.) —
+Ключевой момент: если источник бросает исключение (parser error, `IOError`, etc.) —
 pipeline **не падает**. Вместо этого порождается специальная запись с `SOURCE_ERROR`
 диагностикой. Downstream-стадии видят `result.errors != ()` и пробрасывают
 такую запись без обработки.
@@ -557,7 +553,7 @@ class PipelineOrchestrator:
 **Lazy pipeline:** `PipelineOrchestrator.run()` возвращает итератор, данные не потребляются
 до первого `for` на конечном потребителе. Это означает:
 - `MapStage.run()` реально стартует при первом `next()` с конца цепочки
-- `CsvRecordSource` открывает файл при первом `next()` из `Extractor`
+- `PolarsCsvRecordSource` открывает файл при первом `next()` из `Extractor`
 
 Мониторинг через `PipelineHooks`:
 - `on_stage_start` — при первом элементе из стадии (lazy)
@@ -575,7 +571,7 @@ source_path = resolve_source_location(source_spec)
 has_header = source_spec.source.options.get("has_header_default", True)
 
 # Infra: конкретный источник
-source = CsvRecordSource(path=source_path, has_header=has_header)
+source = PolarsCsvRecordSource(path=source_path, has_header=has_header)
 
 # Domain: extractor оборачивает источник
 extractor = Extractor(source=source, catalog=catalog)
@@ -618,7 +614,7 @@ Delivery и stages импортируют из `connector.domain.transform.mappi
 
 ```python
 # ПРАВИЛЬНО: delivery создаёт конкретный источник
-from connector.infra.sources.csv_reader import CsvRecordSource
+from connector.infra.sources.csv_reader import PolarsCsvRecordSource
 
 # ПРАВИЛЬНО: domain работает с Protocol
 from connector.domain.ports.transform.sources import RowSource, SourceMapper
@@ -627,7 +623,7 @@ from connector.domain.ports.transform.sources import RowSource, SourceMapper
 # from connector.delivery import ...
 
 # ЗАПРЕЩЕНО: mapper-core не импортирует конкретный источник напрямую
-# from connector.infra.sources.csv_reader import CsvRecordSource  # только delivery
+# from connector.infra.sources.csv_reader import PolarsCsvRecordSource  # только delivery
 
 # ЗАПРЕЩЕНО: MapStage не знает о конкретном MapperEngine
 # from connector.domain.transform.mapping import MapperEngine  # только delivery
@@ -706,7 +702,7 @@ def _build_source(source_spec: SourceSpec, catalog: ErrorCatalog) -> RowSource:
     if source_type == "file" and source_format == "csv":
         path = resolve_source_location(source_spec)
         has_header = source_spec.source.options.get("has_header_default", True)
-        return CsvRecordSource(path=path, has_header=has_header)
+        return PolarsCsvRecordSource(path=path, has_header=has_header)
 
     if source_type == "db":
         conn_str = resolve_source_location(source_spec)
@@ -770,7 +766,7 @@ def test_db_reader_yields_source_records():
 ```
 CSV строка 2: ["u-001", "Doe, John M.", "jdoe", "john.doe@example.com", "+1-555-0100", ...]
 
-CsvRecordSource (has_header=False):
+PolarsCsvRecordSource (has_header=False):
   → SourceRecord(
         line_no=2,
         record_id="line:2",
@@ -848,7 +844,7 @@ employees/source_2/mapping.yaml:
 CSV-файл:
   u-001,Иванов Иван Петрович,ivan.iv,ivan@company.ru,+7-999-123-45-67,...
 
-CsvRecordSource (has_header=False):
+PolarsCsvRecordSource (has_header=False):
   line_no=1, values={"col_0": "u-001", "col_1": "Иванов Иван Петрович", ...}
 
 MapperCore._source_index:
@@ -864,17 +860,17 @@ rule: target=personnel_number, source=raw_id
 ### Сценарий 4: Ошибка источника — битый файл
 
 ```
-CsvRecordSource (итерируем):
+PolarsCsvRecordSource (итерируем):
   строка 1: ["u-001", "Иванов", "ivan"]         → OK, SourceRecord
   строка 2: ["u-002", "Петров"]                  → ожидалось 3 колонки, есть 2
-    → CsvFormatError("Invalid column count at line 2: expected 3, got 2")
+    → parser/source read exception
 
 Extractor.run():
   except Exception as exc:
     yield TransformResult(
         record=SourceRecord(line_no=0, record_id="source", values={}),
         row=None,
-        errors=(DiagnosticItem(code="SOURCE_ERROR", message="Invalid column count..."),)
+        errors=(DiagnosticItem(code="SOURCE_ERROR", message="source parser failed..."),)
     )
   → итерация завершается (один результат с ошибкой)
 
@@ -953,7 +949,7 @@ pipeline.run(extractor.run()) → lazy итератор (файл ещё не о
 
 for result in pipeline.run(extractor.run()):
     # Здесь срабатывает:
-    # 1. CsvRecordSource открывает файл и читает строку 1
+    # 1. PolarsCsvRecordSource открывает файл и читает строку 1
     # 2. Extractor возвращает TransformResult[None]
     # 3. MapStage вызывает mapper.map() для строки 1
     # 4. NormalizeStage обрабатывает результат
@@ -1084,7 +1080,7 @@ def test_employees_dsl_mapper_maps_record() -> None:
 | `connector/domain/transform/core/result.py` | TransformResult, TransformResultBuilder |
 | `connector/domain/transform/core/source_record.py` | SourceRecord |
 | `connector/domain/transform/stages/stages.py` | MapStage, PipelineOrchestrator и все стадии |
-| `connector/infra/sources/csv_reader.py` | CsvRecordSource |
+| `connector/infra/sources/csv_reader.py` | PolarsCsvRecordSource |
 
 ---
 

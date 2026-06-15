@@ -1033,6 +1033,7 @@ class PipelineContainer(containers.DeclarativeContainer):
 
     sources = providers.Container(
         SourceContainer,
+        app_config=app_config,
         dataset_spec=dataset_spec,
     )
     row_source = providers.Factory(

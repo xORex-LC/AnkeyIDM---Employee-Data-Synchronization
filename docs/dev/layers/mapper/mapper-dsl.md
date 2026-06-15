@@ -101,7 +101,7 @@ MapDslBuildOptions ─┘
 
 | Спецификация | Кто использует | Назначение |
 |---|---|---|
-| `SourceSpec` | `CsvRecordSource` (infra) | Путь к файлу, формат, кодировка, поля источника |
+| `SourceSpec` | `PolarsCsvRecordSource` (infra) | Путь к файлу, формат, кодировка, поля источника |
 | `MappingSpec` | `MapperCore` | Правила трансформации source → row |
 | `SinkSpec` | `MapperDsl` (compile), `MapperCore` (validate) | Валидация что результат соответствует схеме |
 
@@ -420,7 +420,7 @@ def resolve_source_location(spec: SourceSpec) -> str:
 spec = load_mapping_spec_for_dataset(dataset)       # MappingSpec
 sink_spec = load_sink_spec_for_dataset(dataset)     # SinkSpec
 dsl_options = load_map_build_options_for_dataset(dataset)  # MapDslBuildOptions
-# SourceSpec загружается отдельно в delivery при создании CsvRecordSource:
+# SourceSpec загружается отдельно в delivery при создании `PolarsCsvRecordSource`:
 source_spec = load_source_spec_for_dataset(dataset)  # SourceSpec
 ```
 
@@ -888,7 +888,7 @@ Pydantic model_validator проверяет: если `source` и `sources` от
 
 | Документ | Описание |
 |----------|---------|
-| [mapper-core.md](mapper-core.md) | Core-логика: RowSource, CsvRecordSource, MapperCore, TransformResult, pipeline |
+| [mapper-core.md](mapper-core.md) | Core-логика: RowSource, PolarsCsvRecordSource, MapperCore, TransformResult, pipeline |
 | [docs/dev/layers/dsl/dsl-engine.md](../dsl/dsl-engine.md) | TransformationEngine, операции, OperationRegistry |
 | [docs/dev/layers/dsl/dsl-specs.md](../dsl/dsl-specs.md) | Базовые DSL-абстракции (DslBaseModel, OperationCall) |
 | `datasets/employees/source_2/mapping.yaml` | Эталонный пример mapping-спецификации |

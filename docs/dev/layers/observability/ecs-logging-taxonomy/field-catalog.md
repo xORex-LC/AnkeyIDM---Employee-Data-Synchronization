@@ -107,7 +107,7 @@
 | `nexus.source.records_total` | source read completion/failure | Records yielded before completion/failure |
 | `nexus.source.blank_rows_skipped` | source read summary | Blank CSV rows skipped by reader |
 | `nexus.source.rows_with_nulls` | source read summary | Rows containing at least one null-normalized value |
-| `nexus.source.null_values_total` | source read summary | Total values normalized to null by `parse_null()` |
+| `nexus.source.null_values_total` | source read summary | Total values normalized to null at the source adapter boundary |
 | `nexus.source.record.fields_count` | source per-record/sampled events | Number of fields in one `SourceRecord.values` |
 | `nexus.source.record.null_fields_count` | source per-record/sampled events | Number of null fields in one `SourceRecord.values` |
 | `nexus.source.record.empty_fields_count` | source per-record/sampled events | Number of empty raw fields if tracked before null normalization |
