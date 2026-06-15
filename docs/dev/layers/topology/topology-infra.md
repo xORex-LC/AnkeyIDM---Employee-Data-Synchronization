@@ -136,7 +136,7 @@ infra/logging/
 | Слой | Тип связи | Через что | Зачем |
 |------|-----------|-----------|-------|
 | Cache | Зависимость | `TopologyCacheReadPort`, `CacheSpec` | Чтение target adjacency/membership без прямого SQL |
-| Sources | Зависимость | source CSV + `csv_options()` | Source adjacency projection (Stage G) |
+| Sources | Зависимость | source CSV + `source.format` | Source adjacency projection (Stage G) |
 | Topology Ports | Реализует | `*ReadPort`, `TopologyEventSink` | Boundary к ядру/usecases |
 | Topology Common | Использует | `CompiledCanonicalizer` (`compiled.python`) | Канонизация target labels |
 | Logging | Зависимость | structlog command logger | Публикация lifecycle-событий |

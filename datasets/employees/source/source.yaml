@@ -1,0 +1,44 @@
+dataset: employees
+source:
+  type: file
+  location: source_employees.csv
+  format:
+    kind: csv
+    delimiter: ";"
+    encoding: "utf-8-sig"
+    has_header: true
+  fields:
+    - name: "Таб.№"
+      type: string
+      required: true
+      nullable: false
+    - name: "Пользователи"
+      type: string
+      required: true
+      nullable: false
+    - name: "Орг. единица уровня 1"
+      type: string
+    - name: "Орг. единица уровня 2"
+      type: string
+    - name: "Орг. единица уровня 3"
+      type: string
+    - name: "Орг. единица уровня 4"
+      type: string
+    - name: "Орг. единица уровня 5"
+      type: string
+    - name: "Организационная единица"
+      type: string
+    - name: "Штатная должность"
+      type: string
+    - name: "Поступл."
+      type: string
+    - name: "Contract Number"
+      type: string
+    - name: "Догвр:нач."
+      type: string
+    - name: "Название руководящей должности"
+      type: string
+    - name: "ДатаРожд"
+      type: string
+    - name: "Пол"
+      type: string

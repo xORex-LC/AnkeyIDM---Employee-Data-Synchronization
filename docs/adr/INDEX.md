@@ -216,8 +216,9 @@ docs/adr/
 | ID | Тип | Название | Статус | Дата |
 |----|-----|----------|--------|------|
 | [EXTRACT-PROBLEM-001](./extract/EXTRACT-PROBLEM-001-source-selection-hardcoded-and-cross-layer-coupling.md) | Problem | Выбор источника захардкожен на CSV и завязан на infra через cross-layer импорт | ✅ Закрыто | 2026-06-15 |
-| [EXTRACT-DEC-001](./extract/EXTRACT-DEC-001-source-selection-seam-and-polars-csv-adapter.md) | Decision | Шов выбора источника (registry + composition root) и миграция CSV-адаптера на polars | ✅ Принято (реализация запланирована) | 2026-06-15 |
-| [EXTRACT-PROBLEM-002](./extract/EXTRACT-PROBLEM-002-non-polymorphic-source-spec.md) | Problem | Spec источника не полиморфен по типу — db/api непредставимы в рантайме | ❌ Открыто | 2026-06-15 |
+| [EXTRACT-DEC-001](./extract/EXTRACT-DEC-001-source-selection-seam-and-polars-csv-adapter.md) | Decision | Шов выбора источника (registry + composition root) и миграция CSV-адаптера на polars | ✅ Принято (реализовано) | 2026-06-15 |
+| [EXTRACT-PROBLEM-002](./extract/EXTRACT-PROBLEM-002-non-polymorphic-source-spec.md) | Problem | Spec источника не полиморфен по типу — db/api непредставимы в рантайме | ✅ Закрыто | 2026-06-15 |
+| [EXTRACT-DEC-002](./extract/EXTRACT-DEC-002-polymorphic-source-spec-typed-format-blocks.md) | Decision | Полиморфно-готовый spec источника через типизированные format-блоки (`csv:`) | ✅ Принято (реализация запланирована) | 2026-06-15 |
 | [EXTRACT-PROBLEM-003](./extract/EXTRACT-PROBLEM-003-monolithic-source-adapter-no-isolation.md) | Problem | Адаптер источника монолитен и не изолирован — нет SRP-декомпозиции и упаковки | ❌ Открыто | 2026-06-15 |
 
 _(Список поддерживается как актуальный реестр ADR по слоям.)_

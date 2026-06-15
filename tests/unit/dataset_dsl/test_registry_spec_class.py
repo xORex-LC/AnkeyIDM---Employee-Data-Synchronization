@@ -29,7 +29,7 @@ class _CustomDatasetSpec:
                 "dataset": self.dataset_name,
                 "source": {
                     "type": "file",
-                    "format": "csv",
+                    "format": {"kind": "csv"},
                     "location": "dummy.csv",
                 },
             }

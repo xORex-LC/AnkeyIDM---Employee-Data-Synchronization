@@ -17,6 +17,13 @@
 YAML-файл → loader → Pydantic Spec → Compiler → Stage (StageContract)
 ```
 
+## SourceSpec
+
+`SourceSpec` описывает источник декларативно и не создаёт runtime adapter. Физический формат
+задаётся через typed `source.format` с discriminator `kind`; текущий реализованный член —
+`CsvSourceFormat` (`kind: csv`, `delimiter`, `encoding`, `has_header`). `SourceFieldSpec.fields`
+остаётся advisory-описанием контракта источника и не валидирует записи на extract-boundary.
+
 ## Зависимости
 
 **Зависит от:** `domain/dsl/specs/`, `domain/dsl/engine.py`, `pydantic`.  
