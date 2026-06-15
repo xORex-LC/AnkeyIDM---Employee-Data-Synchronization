@@ -206,11 +206,8 @@ class TestYamlDatasetSpecAdapters:
             assert isinstance(spec.get_source_spec(), SourceSpec)
             assert spec.get_apply_adapter().operation_alias == "users.upsert"
             source_spec = spec.get_source_spec()
-            assert source_spec.source.has_header is True
-            assert (
-                source_spec.source.csv_options()
-                == artifacts.source_spec.source.csv_options()
-            )
+            assert source_spec.source.format.has_header is True
+            assert source_spec.source.format == artifacts.source_spec.source.format
         finally:
             configure_runtime_paths(None)
 

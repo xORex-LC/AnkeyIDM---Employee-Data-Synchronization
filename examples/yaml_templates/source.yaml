@@ -5,19 +5,20 @@ dataset: dataset_name
 source:
   # Source backend type. Supported values: file, db, api.
   type: file
-  # Source physical format. CSV options are validated only when this value is csv.
-  format: csv
   # Relative ref inside runtime.source_data_root or absolute path.
   location: "source.csv"
-  # Whether the source file has a header row.
-  has_header: true
-  # Format-specific options. For csv: delimiter and encoding are supported.
-  options:
+  # Format discriminator and format-specific options.
+  # New formats add their own `kind` model together with a runtime adapter.
+  format:
+    kind: csv
     # CSV delimiter. Must be exactly one character.
     delimiter: ","
     # Python codec name used to read the source file.
     encoding: "utf-8-sig"
-  # Declarative description of available source fields.
+    # Whether the source file has a header row.
+    has_header: true
+  # Advisory description of available source fields.
+  # DEC-002 does not enforce this at runtime; record-level validation is separate.
   fields:
     # Physical or canonical source field name.
     - name: source_field

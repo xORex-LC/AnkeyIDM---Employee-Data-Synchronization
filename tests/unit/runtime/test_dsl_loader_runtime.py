@@ -65,8 +65,9 @@ datasets:
 dataset: employees
 source:
   type: file
-  format: csv
   location: ./sources/employees.csv
+  format:
+    kind: csv
 """.strip(),
     )
     _write(
@@ -133,7 +134,9 @@ mapping:
         configure_registry_path(None)
 
 
-def test_registry_override_changes_active_registry_without_changing_runtime_roots(tmp_path: Path) -> None:
+def test_registry_override_changes_active_registry_without_changing_runtime_roots(
+    tmp_path: Path,
+) -> None:
     runtime_root = tmp_path / "runtime"
     registry = tmp_path / "config" / "custom-registry.yaml"
     _write(
@@ -154,8 +157,9 @@ datasets:
 dataset: custom
 source:
   type: file
-  format: csv
   location: ./custom.csv
+  format:
+    kind: csv
 """.strip(),
     )
 
@@ -180,11 +184,15 @@ def test_target_path_resolution_uses_target_projection_root(tmp_path: Path) -> N
     _write(new_target, "provider: ankey\n")
 
     configure_runtime_paths(RuntimePathOverrides(runtime_root=runtime_root))
-    preferred = _resolve_target_path({"targets": {"ankey": "targets/ankey.yaml"}}, "ankey")
+    preferred = _resolve_target_path(
+        {"targets": {"ankey": "targets/ankey.yaml"}}, "ankey"
+    )
     assert preferred == new_target.resolve()
 
 
-def test_dictionary_manifest_loader_prefers_dictionary_specs_root(tmp_path: Path) -> None:
+def test_dictionary_manifest_loader_prefers_dictionary_specs_root(
+    tmp_path: Path,
+) -> None:
     runtime_root = tmp_path / "runtime"
     _write(
         runtime_root / "datasets" / "registry.yaml",
@@ -222,7 +230,13 @@ items: {}
 def test_dictionary_runtime_helpers_use_dictionary_specs_root(tmp_path: Path) -> None:
     runtime_root = tmp_path / "runtime"
     _write(runtime_root / "datasets" / "registry.yaml", "datasets: {}\n")
-    spec_path = runtime_root / "etc" / "dictionaries" / "employees" / "departments.dictionary.yaml"
+    spec_path = (
+        runtime_root
+        / "etc"
+        / "dictionaries"
+        / "employees"
+        / "departments.dictionary.yaml"
+    )
     _write(
         spec_path,
         """
@@ -241,6 +255,8 @@ schema:
 
     configure_runtime_paths(RuntimePathOverrides(runtime_root=runtime_root))
 
-    resolved = common_loader._resolve_dictionary_spec_path("employees/departments.dictionary.yaml")
+    resolved = common_loader._resolve_dictionary_spec_path(
+        "employees/departments.dictionary.yaml"
+    )
 
     assert resolved == spec_path.resolve()
