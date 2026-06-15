@@ -120,22 +120,22 @@ def build_csv_source(
     """Построить текущий CSV `RowSource` из декларации `SourceSpec`.
 
     Контракт:
-        - поддерживается только `type=file`, `format=csv`;
+        - поддерживается только `type=file`, `format.kind=csv`;
         - path resolution принадлежит builder'у, а не `DatasetSpec`;
         - параметры времени выполнения передаются через замыкание регистрации
           сборщика в `SourceContainer`.
     """
-    if spec.source.type != "file" or spec.source.format != "csv":
+    source_format = spec.source.format
+    if spec.source.type != "file" or source_format.kind != "csv":
         raise ValueError(
             f"{spec.dataset} source spec must be file/csv for current CSV adapter"
         )
     source_path = resolve_source_location(spec)
-    csv_options = spec.source.csv_options()
     return PolarsCsvRecordSource(
         source_path,
-        spec.source.has_header,
-        delimiter=csv_options.delimiter,
-        encoding=csv_options.encoding,
+        source_format.has_header,
+        delimiter=source_format.delimiter,
+        encoding=source_format.encoding,
         read_batch_size=read_batch_size,
     )
 

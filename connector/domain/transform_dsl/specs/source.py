@@ -6,21 +6,28 @@
 from __future__ import annotations
 
 import codecs
-from typing import Any, Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
 
 from connector.domain.dsl.specs._base import DslBaseModel
 
 
-class CsvSourceOptions(DslBaseModel):
+class CsvSourceFormat(DslBaseModel):
     """
     Назначение:
         Декларативные параметры физического CSV-формата источника.
+
+    Контракт:
+        `kind` является discriminator для `SourceFormat`. Остальные поля
+        описывают только CSV-семантику и не должны выноситься на уровень
+        `SourceConfig`.
     """
 
+    kind: Literal["csv"]
     delimiter: str = ","
     encoding: str = "utf-8-sig"
+    has_header: bool = False
 
     @field_validator("delimiter", mode="after")
     @classmethod
@@ -44,17 +51,21 @@ class CsvSourceOptions(DslBaseModel):
         return normalized
 
 
+SourceFormat = Annotated[CsvSourceFormat, Field(discriminator="kind")]
+
+
 class SourceFieldSpec(DslBaseModel):
     """
     Назначение:
         Декларативное описание поля входного источника.
 
-    Примечание:
+    Контракт:
         `name` сейчас используется как документированное имя поля источника.
         Сопоставление source -> sink выполняется mapping DSL, а `aliases` пока
         не применяются в runtime. Поле `aliases` оставлено как точка расширения
         для будущей нормализации физических имён колонок к каноническим source
-        names на source boundary.
+        names на source boundary. В DEC-002 `fields` остаётся advisory и не
+        является runtime-валидацией записей.
     """
 
     name: str
@@ -71,28 +82,37 @@ class SourceConfig(DslBaseModel):
     """
 
     type: Literal["file", "db", "api"]
-    format: str | None = None
     location: str | None = None
-    has_header: bool = False
-    options: dict[str, Any] = Field(default_factory=dict)
+    format: SourceFormat
     fields: list[SourceFieldSpec] = Field(default_factory=list)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_legacy_shape(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        if isinstance(data.get("format"), str):
+            raise ValueError(
+                "source.format must use object shape: "
+                "format: {kind: csv, delimiter: ..., encoding: ..., has_header: ...}"
+            )
+        if "options" in data:
+            raise ValueError(
+                "source.options is not supported; migrate CSV options into source.format"
+            )
+        if "has_header" in data:
+            raise ValueError(
+                "source.has_header is not supported; use source.format.has_header"
+            )
+        return data
+
     @model_validator(mode="after")
-    def _validate_format_options(self) -> "SourceConfig":
-        if self.format == "csv":
-            self.csv_options()
+    def _validate_type(self) -> "SourceConfig":
         if self.type == "file":
             location = (self.location or "").strip()
             if not location:
                 raise ValueError("source.location must be configured for file sources")
         return self
-
-    def csv_options(self) -> CsvSourceOptions:
-        """
-        Назначение:
-            Вернуть типизированные CSV options с текущими default-значениями.
-        """
-        return CsvSourceOptions.model_validate(self.options or {})
 
 
 class SourceSpec(DslBaseModel):

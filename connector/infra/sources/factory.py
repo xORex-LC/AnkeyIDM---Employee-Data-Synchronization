@@ -2,7 +2,7 @@
 
 Назначение:
     Хранит явные регистрации сборщиков `RowSource` по декларативному ключу
-    `(source.type, source.format)`.
+    `(source.type, source.format.kind)`.
 
 Граница ответственности:
     Не читает данные источника и не знает о DI-контейнере. Владение
@@ -26,7 +26,7 @@ class SourceAdapterRegistry:
         Даёт единую точку выбора runtime `RowSource` по `SourceSpec`.
 
     Контракт:
-        - один ключ `(type, format)` может иметь только один сборщик;
+        - один ключ `(type, format.kind)` может иметь только один сборщик;
         - неизвестный ключ считается ошибкой конфигурации и падает fail-fast;
         - сборщик остаётся узким: `SourceSpec -> RowSource`.
     """
@@ -41,7 +41,7 @@ class SourceAdapterRegistry:
         format: str | None,
         builder: SourceBuilder,
     ) -> None:
-        """Зарегистрировать сборщик для одного ключа `(type, format)`."""
+        """Зарегистрировать сборщик для одного ключа `(type, format.kind)`."""
         key = self._key(type=type, format=format)
         if key in self._builders:
             raise ValueError(
@@ -51,11 +51,17 @@ class SourceAdapterRegistry:
 
     def create(self, spec: SourceSpec) -> RowSource:
         """Создать `RowSource` по декларации источника."""
-        key = self._key(type=spec.source.type, format=spec.source.format)
+        key = self._key(type=spec.source.type, format=spec.source.format.kind)
         builder = self._builders.get(key)
         if builder is None:
+            registered = ", ".join(
+                f"{registered_type}/{registered_format}"
+                for registered_type, registered_format in sorted(self._builders)
+            )
+            registered_message = registered or "<none>"
             raise ValueError(
-                f"Unsupported source adapter: type={key[0]!r}, format={key[1]!r}"
+                f"Unsupported source adapter: type={key[0]!r}, format={key[1]!r}. "
+                f"Registered: {registered_message}"
             )
         return builder(spec)
 

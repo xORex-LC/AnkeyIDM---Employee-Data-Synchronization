@@ -1,7 +1,7 @@
 """Юнит-тесты реестра адаптеров источников.
 
 Назначение:
-    Проверяют выбор сборщика по `(type, format)` и fail-fast поведение
+    Проверяют выбор сборщика по `(type, format.kind)` и fail-fast поведение
     registry для ошибочной конфигурации.
 
 Граница тестирования:
@@ -25,14 +25,14 @@ class _Rows:
 def _source_spec(
     *,
     source_type: str = "file",
-    source_format: str | None = "csv",
+    source_format: str = "csv",
 ) -> SourceSpec:
     return SourceSpec.model_validate(
         {
             "dataset": "employees",
             "source": {
                 "type": source_type,
-                "format": source_format,
+                "format": {"kind": source_format},
                 "location": "employees.csv",
             },
         }
@@ -71,6 +71,9 @@ def test_registry_rejects_duplicate_key():
 @pytest.mark.unit
 def test_registry_rejects_unknown_source_adapter():
     registry = SourceAdapterRegistry()
+    registry.register(type="file", format="csv", builder=lambda spec: _Rows())
 
-    with pytest.raises(ValueError, match="Unsupported source adapter"):
-        registry.create(_source_spec(source_format="json"))
+    with pytest.raises(
+        ValueError, match="Unsupported source adapter.*Registered: file/csv"
+    ):
+        registry.create(_source_spec(source_type="api"))

@@ -6,8 +6,11 @@ import pytest
 
 from connector.common.runtime_paths import RuntimePathOverrides
 from connector.domain.dsl.loader import configure_runtime_paths
-from connector.domain.transform_dsl import load_source_spec_for_dataset, resolve_source_location
-from connector.domain.transform_dsl.specs import SourceSpec
+from connector.domain.transform_dsl import (
+    load_source_spec_for_dataset,
+    resolve_source_location,
+)
+from connector.domain.transform_dsl.specs import CsvSourceFormat, SourceSpec
 from tests.runtime_test_support import tracked_employees_runtime_roots
 
 
@@ -15,29 +18,28 @@ def test_load_source_spec_for_dataset(employees_registry_path) -> None:
     spec = load_source_spec_for_dataset("employees")
     assert spec.dataset == "employees"
     assert spec.source.type == "file"
-    assert spec.source.format == "csv"
+    assert spec.source.format.kind == "csv"
     assert spec.source.location == "source_employees_example_1.csv"
-    csv_options = spec.source.csv_options()
-    assert csv_options.delimiter
-    assert csv_options.encoding
+    assert isinstance(spec.source.format, CsvSourceFormat)
+    assert spec.source.format.delimiter
+    assert spec.source.format.encoding
 
 
-def test_source_spec_csv_options_default_to_current_runtime_values() -> None:
+def test_source_spec_csv_format_defaults_to_current_runtime_values() -> None:
     spec = SourceSpec.model_validate(
         {
             "dataset": "employees",
             "source": {
                 "type": "file",
-                "format": "csv",
+                "format": {"kind": "csv"},
                 "location": "/tmp/employees.csv",
             },
         }
     )
 
-    csv_options = spec.source.csv_options()
-
-    assert csv_options.delimiter == ","
-    assert csv_options.encoding == "utf-8-sig"
+    assert spec.source.format.delimiter == ","
+    assert spec.source.format.encoding == "utf-8-sig"
+    assert spec.source.format.has_header is False
 
 
 def test_source_spec_rejects_invalid_csv_delimiter() -> None:
@@ -47,12 +49,12 @@ def test_source_spec_rejects_invalid_csv_delimiter() -> None:
                 "dataset": "employees",
                 "source": {
                     "type": "file",
-                    "format": "csv",
-                    "location": "/tmp/employees.csv",
-                    "options": {
+                    "format": {
+                        "kind": "csv",
                         "delimiter": ";;",
                         "encoding": "utf-8",
                     },
+                    "location": "/tmp/employees.csv",
                 },
             }
         )
@@ -65,12 +67,70 @@ def test_source_spec_rejects_unknown_csv_encoding() -> None:
                 "dataset": "employees",
                 "source": {
                     "type": "file",
-                    "format": "csv",
-                    "location": "/tmp/employees.csv",
-                    "options": {
+                    "format": {
+                        "kind": "csv",
                         "delimiter": ";",
                         "encoding": "not-a-real-encoding",
                     },
+                    "location": "/tmp/employees.csv",
+                },
+            }
+        )
+
+
+def test_source_spec_rejects_unknown_format_kind() -> None:
+    with pytest.raises(ValueError, match="Input tag 'cvs'"):
+        SourceSpec.model_validate(
+            {
+                "dataset": "employees",
+                "source": {
+                    "type": "file",
+                    "format": {"kind": "cvs"},
+                    "location": "/tmp/employees.csv",
+                },
+            }
+        )
+
+
+def test_source_spec_rejects_legacy_string_format() -> None:
+    with pytest.raises(ValueError, match="source.format must use object shape"):
+        SourceSpec.model_validate(
+            {
+                "dataset": "employees",
+                "source": {
+                    "type": "file",
+                    "format": "csv",
+                    "location": "/tmp/employees.csv",
+                },
+            }
+        )
+
+
+def test_source_spec_rejects_legacy_options() -> None:
+    with pytest.raises(ValueError, match="source.options is not supported"):
+        SourceSpec.model_validate(
+            {
+                "dataset": "employees",
+                "source": {
+                    "type": "file",
+                    "format": {"kind": "csv"},
+                    "location": "/tmp/employees.csv",
+                    "options": {"delimiter": ";"},
+                },
+            }
+        )
+
+
+def test_source_spec_rejects_legacy_top_level_has_header() -> None:
+    with pytest.raises(ValueError, match="source.has_header is not supported"):
+        SourceSpec.model_validate(
+            {
+                "dataset": "employees",
+                "source": {
+                    "type": "file",
+                    "format": {"kind": "csv"},
+                    "location": "/tmp/employees.csv",
+                    "has_header": True,
                 },
             }
         )
@@ -107,7 +167,7 @@ def test_source_spec_requires_location_for_file_sources() -> None:
                 "dataset": "employees",
                 "source": {
                     "type": "file",
-                    "format": "csv",
+                    "format": {"kind": "csv"},
                 },
             }
         )

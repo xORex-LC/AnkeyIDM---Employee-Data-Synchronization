@@ -37,13 +37,13 @@ def _source_spec(path: str) -> SourceSpec:
             "dataset": "employees",
             "source": {
                 "type": "file",
-                "format": "csv",
-                "location": path,
-                "has_header": True,
-                "options": {
+                "format": {
+                    "kind": "csv",
                     "delimiter": ";",
                     "encoding": "utf-8-sig",
+                    "has_header": True,
                 },
+                "location": path,
             },
         }
     )

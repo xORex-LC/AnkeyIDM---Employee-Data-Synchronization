@@ -178,13 +178,14 @@ class TopologyBootstrapStep:
 
         event_sink = StructlogTopologyEventSink(logger=logger)
         usecase = TopologyBootstrapUseCase(
-            target_usecase_factory=lambda topology_spec,
-            compiled: _build_target_usecase(
-                container=container,
-                catalog=catalog,
-                event_sink=event_sink,
-                topology_spec=topology_spec,
-                compiled=compiled,
+            target_usecase_factory=lambda topology_spec, compiled: (
+                _build_target_usecase(
+                    container=container,
+                    catalog=catalog,
+                    event_sink=event_sink,
+                    topology_spec=topology_spec,
+                    compiled=compiled,
+                )
             ),
             source_validation_usecase_factory=lambda topology_spec, compiled: (
                 _build_source_validation_usecase(
@@ -356,7 +357,7 @@ def _build_source_validation_usecase(
         topology_dataset=topology_spec.dataset,
     )
     source_spec = load_source_spec_for_dataset(topology_spec.dataset)
-    csv_options = source_spec.source.csv_options()
+    source_format = source_spec.source.format
     cache_bundle = container.cache_dsl()
     cache_read = container.cache.roles().topology_read
     cache_spec = _require_cache_spec(
@@ -366,9 +367,9 @@ def _build_source_validation_usecase(
     )
     source_reader = PolarsSourceAdjacencyReader(
         path=resolve_source_location(source_spec),
-        has_header=source_spec.source.has_header,
-        delimiter=csv_options.delimiter,
-        encoding=csv_options.encoding,
+        has_header=source_format.has_header,
+        delimiter=source_format.delimiter,
+        encoding=source_format.encoding,
         node_id_field=source_topology.node_id_field,
         parent_id_field=source_topology.parent_id_field,
         label_field=source_topology.label_field,
