@@ -20,6 +20,7 @@ from connector.domain.transform_dsl.specs import (
     NormalizeSpec,
     ResolveSpec,
     SinkSpec,
+    SourceSpec,
     TopologySpec,
 )
 from tests.runtime_test_support import (
@@ -114,6 +115,17 @@ class TestYamlDatasetSpecBuildSpecFor:
         assert second.mapping.rules[0].target == original_target
         assert second.mapping.rules[0].target != "__mutated__"
 
+    def test_get_source_spec_returns_deep_copy_on_each_call(self, spec):
+        first = spec.get_source_spec()
+        assert isinstance(first, SourceSpec)
+        original_location = first.source.location
+        first.source.location = "__mutated__.csv"
+
+        second = spec.get_source_spec()
+
+        assert second.source.location == original_location
+        assert second.source.location != "__mutated__.csv"
+
 
 class TestYamlDatasetSpecAdapters:
     @pytest.fixture()
@@ -191,6 +203,7 @@ class TestYamlDatasetSpecAdapters:
 
         try:
             assert isinstance(spec.build_spec_for("map"), MappingSpec)
+            assert isinstance(spec.get_source_spec(), SourceSpec)
             assert spec.get_apply_adapter().operation_alias == "users.upsert"
             source = spec.build_record_source()
             csv_options = artifacts.source_spec.source.csv_options()

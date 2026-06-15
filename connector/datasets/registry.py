@@ -20,6 +20,7 @@ from connector.domain.ports.secrets.provider import SecretProviderProtocol
 
 _REQUIRED_DATASET_SPEC_MEMBERS = (
     "build_spec_for",
+    "get_source_spec",
     "build_record_source",
     "get_report_adapter",
     "get_apply_adapter",

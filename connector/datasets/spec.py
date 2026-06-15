@@ -14,6 +14,7 @@ from typing import Iterable, Protocol
 from connector.domain.diagnostics.catalog import ErrorCatalog
 from connector.domain.ports.target.apply import ApplyAdapterProtocol
 from connector.domain.transform.core.source_record import SourceRecord
+from connector.domain.transform_dsl.specs import SourceSpec
 
 
 @dataclass(frozen=True)
@@ -48,7 +49,8 @@ class DatasetSpec(Protocol):
 
     Граница:
         - build_spec_for(stage_type) — generic accessor для DSL-спецификации стадии (Phase 2, DEC-009).
-        - build_record_source() — доступ к источнику данных.
+        - get_source_spec() — доступ к декларации источника без создания runtime adapter.
+        - build_record_source() — legacy runtime-доступ к источнику данных до завершения EXTRACT-DEC-001.
         - get_report_adapter() / get_apply_adapter() — отчётные/apply адаптеры.
         - get_diagnostic_catalog() — каталог ошибок.
     """
@@ -56,6 +58,7 @@ class DatasetSpec(Protocol):
     dataset_name: str
 
     def build_spec_for(self, stage_type: str) -> object: ...
+    def get_source_spec(self) -> SourceSpec: ...
     def build_record_source(self) -> Iterable[SourceRecord]: ...
     def get_report_adapter(self) -> ReportAdapter: ...
     def get_apply_adapter(self) -> ApplyAdapterProtocol: ...

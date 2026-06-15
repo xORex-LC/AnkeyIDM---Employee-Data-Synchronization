@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
-from typing import Iterable
+from typing import Iterator
 
 from connector.domain.transform.core.source_record import SourceRecord
 from connector.infra.sources.csv_utils import CsvFormatError, parse_null
@@ -27,20 +27,20 @@ class CsvRecordSource:
         self.delimiter = delimiter
         self.encoding = encoding
 
-    def __iter__(self) -> Iterable[SourceRecord]:
+    def __iter__(self) -> Iterator[SourceRecord]:
         with open(self.path, "r", encoding=self.encoding, newline="") as f:
             if self.has_header:
-                reader = csv.DictReader(f, delimiter=self.delimiter)
-                if reader.fieldnames is None:
+                dict_reader = csv.DictReader(f, delimiter=self.delimiter)
+                if dict_reader.fieldnames is None:
                     raise CsvFormatError("Missing header in source CSV")
-                for csv_line_no, row in enumerate(reader, start=2):
+                for csv_line_no, row in enumerate(dict_reader, start=2):
                     if not row:
                         continue
                     if None in row:
                         extra = row.get(None) or []
-                        got = len(reader.fieldnames) + len(extra)
+                        got = len(dict_reader.fieldnames) + len(extra)
                         raise CsvFormatError(
-                            f"Invalid column count at line {csv_line_no}: expected {len(reader.fieldnames)}, got {got}"
+                            f"Invalid column count at line {csv_line_no}: expected {len(dict_reader.fieldnames)}, got {got}"
                         )
                     values = {key: parse_null(row.get(key)) for key in row}
                     record = SourceRecord(
@@ -51,18 +51,18 @@ class CsvRecordSource:
                     yield record
                 return
 
-            reader = csv.reader(f, delimiter=self.delimiter)
+            plain_reader = csv.reader(f, delimiter=self.delimiter)
             expected_len: int | None = None
-            for csv_line_no, row in enumerate(reader, start=1):
-                if not row:
+            for csv_line_no, plain_row in enumerate(plain_reader, start=1):
+                if not plain_row:
                     continue
                 if expected_len is None:
-                    expected_len = len(row)
-                elif len(row) != expected_len:
+                    expected_len = len(plain_row)
+                elif len(plain_row) != expected_len:
                     raise CsvFormatError(
-                        f"Invalid column count at line {csv_line_no}: expected {expected_len}, got {len(row)}"
+                        f"Invalid column count at line {csv_line_no}: expected {expected_len}, got {len(plain_row)}"
                     )
-                values = {f"col_{idx}": parse_null(value) for idx, value in enumerate(row)}
+                values = {f"col_{idx}": parse_null(value) for idx, value in enumerate(plain_row)}
                 record = SourceRecord(
                     line_no=csv_line_no,
                     record_id=f"line:{csv_line_no}",

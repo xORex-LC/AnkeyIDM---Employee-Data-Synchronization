@@ -12,6 +12,7 @@ from connector.datasets.registry import get_spec, validate_registry
 from connector.datasets.spec import ReportAdapter
 from connector.domain.diagnostics.catalog import ErrorCatalog
 from connector.domain.transform.core.source_record import SourceRecord
+from connector.domain.transform_dsl.specs import SourceSpec
 
 FACTORY_CALLS: list[object] = []
 
@@ -26,6 +27,18 @@ class _CustomDatasetSpec:
 
     def build_record_source(self) -> Iterable[SourceRecord]:
         return ()
+
+    def get_source_spec(self) -> SourceSpec:
+        return SourceSpec.model_validate(
+            {
+                "dataset": self.dataset_name,
+                "source": {
+                    "type": "file",
+                    "format": "csv",
+                    "location": "dummy.csv",
+                },
+            }
+        )
 
     def get_report_adapter(self) -> ReportAdapter:
         return ReportAdapter(

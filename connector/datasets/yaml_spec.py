@@ -21,6 +21,7 @@ from connector.domain.ports.secrets.provider import SecretProviderProtocol
 from connector.domain.ports.target.apply import ApplyAdapterProtocol
 from connector.domain.transform.core.source_record import SourceRecord
 from connector.domain.transform_dsl import resolve_source_location
+from connector.domain.transform_dsl.specs import SourceSpec
 from connector.infra.sources.csv_reader import CsvRecordSource
 
 
@@ -30,6 +31,7 @@ class YamlDatasetSpec:
 
     Контракт:
         - `build_spec_for()` не делает I/O и возвращает изолированную копию spec;
+        - `get_source_spec()` возвращает изолированную копию source declaration;
         - `build_record_source()` использует только preloaded `SourceSpec`;
         - `get_apply_adapter()` использует только preloaded `SinkSpec` и dataset DSL.
     """
@@ -56,6 +58,17 @@ class YamlDatasetSpec:
             raise UnsupportedStageError(stage_type, dataset=self.dataset_name)
         return stage_spec.model_copy(deep=True)
 
+    def get_source_spec(self) -> SourceSpec:
+        """Назначение:
+            Вернуть preloaded source spec без создания runtime source adapter.
+
+        Контракт:
+            - не читает source YAML повторно;
+            - каждая выдача изолирована через `model_copy(deep=True)`;
+            - runtime adapter selection остаётся вне datasets-слоя.
+        """
+        return self._artifacts.source_spec.model_copy(deep=True)
+
     def build_record_source(self) -> Iterable[SourceRecord]:
         """Назначение:
             Построить record source из preloaded source spec.
@@ -64,7 +77,7 @@ class YamlDatasetSpec:
             - не читает source YAML повторно;
             - path resolution выполняется runtime-safe через `source.location`.
         """
-        source_spec = self._artifacts.source_spec
+        source_spec = self.get_source_spec()
         if source_spec.source.type != "file" or source_spec.source.format != "csv":
             raise ValueError(
                 f"{self.dataset_name} source spec must be file/csv for current runtime"
