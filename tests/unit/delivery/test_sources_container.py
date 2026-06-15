@@ -29,9 +29,6 @@ class _DatasetSpec:
         self.get_source_spec_calls += 1
         return self._source_spec
 
-    def build_record_source(self):
-        raise AssertionError("legacy build_record_source() must not be used")
-
 
 def _source_spec(path: str) -> SourceSpec:
     return SourceSpec.model_validate(

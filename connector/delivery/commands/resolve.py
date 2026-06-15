@@ -41,7 +41,9 @@ def handler(ctx: BoundCommandContext, opts: Options, report_sink) -> CommandResu
     )
 
     include_deleted_value = (
-        opts.include_deleted if opts.include_deleted is not None else app_config.dataset.include_deleted
+        opts.include_deleted
+        if opts.include_deleted is not None
+        else app_config.dataset.include_deleted
     )
     report_items_limit_value = (
         opts.report_items_limit
@@ -49,23 +51,33 @@ def handler(ctx: BoundCommandContext, opts: Options, report_sink) -> CommandResu
         else app_config.observability.reporting.items_limit
     )
     include_resolved_items_value = (
-        opts.include_resolved_items if opts.include_resolved_items is not None else False
+        opts.include_resolved_items
+        if opts.include_resolved_items is not None
+        else False
     )
     report_sink.emit(SetMetaEvent(dataset=dataset_name))
-    report_policy = ReportPolicy.from_profile(app_config.observability.reporting.policy_profile)
+    report_policy = ReportPolicy.from_profile(
+        app_config.observability.reporting.policy_profile
+    )
 
     try:
         pipeline = ctx.container.pipeline
-        composer = pipeline.pipeline_composer()
-        with pipeline_topology_scope(ctx=ctx, pipeline=pipeline), \
-             pipeline.dataset_spec.override(dataset_spec), \
-             pipeline.run_id.override(run_id), \
-             pipeline.catalog.override(catalog), \
-             pipeline.include_deleted.override(include_deleted_value):
+        with (
+            pipeline_topology_scope(ctx=ctx, pipeline=pipeline),
+            pipeline.dataset_spec.override(dataset_spec),
+            pipeline.run_id.override(run_id),
+            pipeline.catalog.override(catalog),
+            pipeline.include_deleted.override(include_deleted_value),
+        ):
+            composer = pipeline.pipeline_composer()
             plan_hooks = pipeline.resolve_stage_hooks()
             row_source = pipeline.row_source()
-            pre_resolve = composer.compose(CheckpointName.RESOLVE_CONTEXT, hooks=plan_hooks)
-            contextualized = pre_resolve.run(Extractor(row_source, catalog=catalog).run())
+            pre_resolve = composer.compose(
+                CheckpointName.RESOLVE_CONTEXT, hooks=plan_hooks
+            )
+            contextualized = pre_resolve.run(
+                Extractor(row_source, catalog=catalog).run()
+            )
 
             resolve_usecase = ResolveUseCase(
                 report_items_limit=report_items_limit_value,
@@ -84,7 +96,9 @@ def handler(ctx: BoundCommandContext, opts: Options, report_sink) -> CommandResu
                 resolve_hooks=plan_hooks,
             )
     except sqlite3.Error as exc:
-        return sqlite_cache_error_result(logger=ctx.logger, run_id=run_id, scope="resolve", exc=exc)
+        return sqlite_cache_error_result(
+            logger=ctx.logger, run_id=run_id, scope="resolve", exc=exc
+        )
 
 
 __all__ = ["handler", "Options"]

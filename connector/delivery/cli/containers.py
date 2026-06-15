@@ -1171,7 +1171,7 @@ class PipelineContainer(containers.DeclarativeContainer):
             StageName.RESOLVE: resolve_stage,
         },
         checkpoints=providers.Object(PIPELINE_CHECKPOINTS),
-        default_hooks=pipeline_lifecycle_hooks,
+        default_hooks=pipeline_lifecycle_hooks.provider,
     )
 
     planning_pipeline = providers.Factory(

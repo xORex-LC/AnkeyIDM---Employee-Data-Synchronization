@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from connector.common.runtime_paths import RuntimePathOverrides
@@ -96,7 +94,9 @@ class TestYamlDatasetSpecBuildSpecFor:
         result = spec.build_spec_for("normalize")
 
         assert isinstance(result, NormalizeSpec)
-        name_rule = next(rule for rule in result.normalize.rules if rule.field == "name")
+        name_rule = next(
+            rule for rule in result.normalize.rules if rule.field == "name"
+        )
         assert [op.op for op in name_rule.ops] == ["trim", "upper_first_preserve_rest"]
 
     def test_unsupported_stage(self, spec):
@@ -205,14 +205,11 @@ class TestYamlDatasetSpecAdapters:
             assert isinstance(spec.build_spec_for("map"), MappingSpec)
             assert isinstance(spec.get_source_spec(), SourceSpec)
             assert spec.get_apply_adapter().operation_alias == "users.upsert"
-            source = spec.build_record_source()
-            csv_options = artifacts.source_spec.source.csv_options()
-            assert source.has_header is True
-            assert source.delimiter == csv_options.delimiter
-            assert source.encoding == csv_options.encoding
+            source_spec = spec.get_source_spec()
+            assert source_spec.source.has_header is True
             assert (
-                Path(source.path)
-                == (tmp_path / "sources" / "source_employees_example_1.csv").resolve()
+                source_spec.source.csv_options()
+                == artifacts.source_spec.source.csv_options()
             )
         finally:
             configure_runtime_paths(None)

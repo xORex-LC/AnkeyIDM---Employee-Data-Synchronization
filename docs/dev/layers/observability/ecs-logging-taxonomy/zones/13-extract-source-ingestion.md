@@ -33,7 +33,8 @@
 |---|---|
 | `load_source_spec_for_dataset()` | source DSL is available; detailed DSL failures belong to Zone 7 |
 | `resolve_source_location()` | `source-resolved`, logical source location → runtime path |
-| `YamlDatasetSpec.build_record_source()` | source adapter constructed from preloaded `SourceSpec` |
+| `DatasetSpec.get_source_spec()` | source DSL declaration is available without constructing a runtime adapter |
+| `SourceAdapterRegistry.create()` | source adapter selected from preloaded `SourceSpec` |
 | `CsvRecordSource.__iter__()` | `source-read-started`, `source-header-read`, `source-record-read`, `source-read-completed`, `source-read-failed` |
 | `CsvFormatError` | structural source failure; map to `source-read-failed` with `error.code=SOURCE_ERROR` or future CSV-specific code |
 | `Extractor.run()` | `source-stream-wrapped`, `source-stream-failed`; converts source exception to `DiagnosticStage.EXTRACT` / `SOURCE_ERROR` |

@@ -2,18 +2,17 @@
 Назначение:
     Контракты dataset-плагина для transform/planning/apply сценариев.
 
-    DatasetSpec (Protocol) — narrowed: DSL configuration + adapters.
-    Phase 2 (DEC-009): typed build_*_spec() заменены на generic build_spec_for(stage_type).
+    DatasetSpec (Protocol) — суженный контракт: DSL-конфигурация и адаптеры.
+    Phase 2 (DEC-009): типизированные build_*_spec() заменены на `build_spec_for(stage_type)`.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Protocol
+from typing import Protocol
 
 from connector.domain.diagnostics.catalog import ErrorCatalog
 from connector.domain.ports.target.apply import ApplyAdapterProtocol
-from connector.domain.transform.core.source_record import SourceRecord
 from connector.domain.transform_dsl.specs import SourceSpec
 
 
@@ -23,6 +22,7 @@ class ReportAdapter:
     Назначение:
         Набор констант/лейблов для отчётов по датасету.
     """
+
     identity_label: str
     conflict_code: str
     conflict_field: str
@@ -45,12 +45,12 @@ class UnsupportedStageError(Exception):
 class DatasetSpec(Protocol):
     """
     Назначение:
-        Контракт плагина датасета: DSL configuration + adapters.
+        Контракт плагина датасета: DSL-конфигурация и адаптеры времени выполнения,
+        не связанные с чтением источника.
 
     Граница:
-        - build_spec_for(stage_type) — generic accessor для DSL-спецификации стадии (Phase 2, DEC-009).
-        - get_source_spec() — доступ к декларации источника без создания runtime adapter.
-        - build_record_source() — legacy runtime-доступ к источнику данных до завершения EXTRACT-DEC-001.
+        - build_spec_for(stage_type) — универсальный accessor DSL-спецификации стадии (Phase 2, DEC-009).
+        - get_source_spec() — доступ к декларации источника без создания runtime-адаптера.
         - get_report_adapter() / get_apply_adapter() — отчётные/apply адаптеры.
         - get_diagnostic_catalog() — каталог ошибок.
     """
@@ -59,7 +59,6 @@ class DatasetSpec(Protocol):
 
     def build_spec_for(self, stage_type: str) -> object: ...
     def get_source_spec(self) -> SourceSpec: ...
-    def build_record_source(self) -> Iterable[SourceRecord]: ...
     def get_report_adapter(self) -> ReportAdapter: ...
     def get_apply_adapter(self) -> ApplyAdapterProtocol: ...
     def get_diagnostic_catalog(self, strict: bool) -> ErrorCatalog: ...

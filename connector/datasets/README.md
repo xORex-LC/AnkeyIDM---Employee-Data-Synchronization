@@ -10,7 +10,7 @@
 
 | Файл | Назначение |
 |---|---|
-| `spec.py` | `DatasetSpec` (Protocol) — контракт плагина: `build_spec_for(stage_type)`, `get_source_spec()`, legacy `build_record_source()`, `get_apply_adapter()`, `get_diagnostic_catalog()`, `get_report_adapter()` |
+| `spec.py` | `DatasetSpec` (Protocol) — контракт плагина: `build_spec_for(stage_type)`, `get_source_spec()`, `get_apply_adapter()`, `get_diagnostic_catalog()`, `get_report_adapter()` |
 | `registry.py` | `DatasetRegistry` — auto-discovery датасетов из `datasets/registry.yaml`; выбор factory по имени |
 | `yaml_spec.py` | `YamlDatasetSpec` — реализация `DatasetSpec` поверх YAML-артефактов |
 | `yaml_spec_loader.py` | Загружает все YAML-файлы датасета в `DatasetArtifacts` |
@@ -26,13 +26,10 @@
 
 Датасет-плагин знает о своих DSL-файлах, но не содержит бизнес-логики трансформации. Новый датасет = новый YAML в `datasets/<name>/` + запись в `datasets/registry.yaml`. Python-код менять не требуется.
 
-## Extract source transition
+## Extract source seam
 
-В рамках `EXTRACT-DEC-001` слой датасета постепенно перестаёт строить runtime source adapter.
-Переходное состояние:
+В рамках `EXTRACT-DEC-001` слой датасета не строит runtime source adapter.
 
-- `get_source_spec()` — новый accessor декларации источника (`SourceSpec`) без создания adapter.
-- `build_record_source()` — legacy runtime accessor для обратной совместимости до полного удаления из `DatasetSpec`.
-
-Выбор конкретного `RowSource` выполняется в `delivery` composition root через `SourceAdapterRegistry`.
-После завершения source-selection migration `build_record_source()` будет удалён из `DatasetSpec`.
+- `get_source_spec()` — accessor декларации источника (`SourceSpec`) без создания adapter.
+- Выбор конкретного `RowSource` выполняется в `delivery` composition root через `SourceAdapterRegistry`.
+- `datasets` не импортирует `infra.sources.*`; runtime path resolution принадлежит source builder'ам.

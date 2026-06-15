@@ -11,7 +11,10 @@ from connector.domain.transform.core.result import TransformResult
 from connector.domain.transform.mapping import MapperEngine
 from connector.domain.transform.normalize import NormalizerEngine
 from connector.common.runtime_paths import RuntimePathOverrides
-from tests.integration.secrets._temp_registry import build_temp_employees_registry_with_temp_dictionaries
+from connector.infra.sources.csv_reader import build_csv_source
+from tests.integration.secrets._temp_registry import (
+    build_temp_employees_registry_with_temp_dictionaries,
+)
 
 
 HEADER = ";".join(
@@ -100,7 +103,7 @@ def test_source2_real_csv_map_and_normalize_pipeline(tmp_path: Path) -> None:
         normalizer = NormalizerEngine.from_dataset(dataset="employees", catalog=catalog)
 
         normalized_results: list[TransformResult] = []
-        for record in dataset_spec.build_record_source():
+        for record in build_csv_source(dataset_spec.get_source_spec()):
             mapped = mapper.map(record)
             normalized_results.append(normalizer.normalize(mapped))
 
@@ -111,7 +114,10 @@ def test_source2_real_csv_map_and_normalize_pipeline(tmp_path: Path) -> None:
         dataset_registry_module._registry = None
 
     assert len(rows) == 2
-    assert rows[0]["organization_id"] == "Отдел администрирования, сопровождения и развития локальных ИУС"
+    assert (
+        rows[0]["organization_id"]
+        == "Отдел администрирования, сопровождения и развития локальных ИУС"
+    )
     assert rows[1]["organization_id"] == "Отдел информационной безопасности"
     assert rows[0]["is_logon_disable"] is False
     assert rows[1]["is_logon_disable"] is False

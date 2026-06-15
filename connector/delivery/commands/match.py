@@ -40,7 +40,9 @@ def handler(ctx: BoundCommandContext, opts: Options, report_sink) -> CommandResu
     )
 
     include_deleted_value = (
-        opts.include_deleted if opts.include_deleted is not None else app_config.dataset.include_deleted
+        opts.include_deleted
+        if opts.include_deleted is not None
+        else app_config.dataset.include_deleted
     )
     report_items_limit_value = (
         opts.report_items_limit
@@ -51,16 +53,20 @@ def handler(ctx: BoundCommandContext, opts: Options, report_sink) -> CommandResu
         opts.include_matched_items if opts.include_matched_items is not None else False
     )
     report_sink.emit(SetMetaEvent(dataset=dataset_name))
-    report_policy = ReportPolicy.from_profile(app_config.observability.reporting.policy_profile)
+    report_policy = ReportPolicy.from_profile(
+        app_config.observability.reporting.policy_profile
+    )
 
     try:
         pipeline = ctx.container.pipeline
-        composer = pipeline.pipeline_composer()
-        with pipeline_topology_scope(ctx=ctx, pipeline=pipeline), \
-             pipeline.dataset_spec.override(dataset_spec), \
-             pipeline.run_id.override(run_id), \
-             pipeline.catalog.override(catalog), \
-             pipeline.include_deleted.override(include_deleted_value):
+        with (
+            pipeline_topology_scope(ctx=ctx, pipeline=pipeline),
+            pipeline.dataset_spec.override(dataset_spec),
+            pipeline.run_id.override(run_id),
+            pipeline.catalog.override(catalog),
+            pipeline.include_deleted.override(include_deleted_value),
+        ):
+            composer = pipeline.pipeline_composer()
             plan_hooks = pipeline.resolve_stage_hooks()
             match_pipeline = composer.compose(CheckpointName.MATCH, hooks=plan_hooks)
             match_usecase = MatchUseCase(
@@ -76,7 +82,9 @@ def handler(ctx: BoundCommandContext, opts: Options, report_sink) -> CommandResu
                 catalog=catalog,
             )
     except sqlite3.Error as exc:
-        return sqlite_cache_error_result(logger=ctx.logger, run_id=run_id, scope="match", exc=exc)
+        return sqlite_cache_error_result(
+            logger=ctx.logger, run_id=run_id, scope="match", exc=exc
+        )
 
 
 __all__ = ["handler", "Options"]

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
 
 import pytest
 
@@ -11,7 +10,6 @@ from connector.datasets import registry as registry_module
 from connector.datasets.registry import get_spec, validate_registry
 from connector.datasets.spec import ReportAdapter
 from connector.domain.diagnostics.catalog import ErrorCatalog
-from connector.domain.transform.core.source_record import SourceRecord
 from connector.domain.transform_dsl.specs import SourceSpec
 
 FACTORY_CALLS: list[object] = []
@@ -24,9 +22,6 @@ class _CustomDatasetSpec:
 
     def build_spec_for(self, stage_type: str) -> object:
         return {"stage_type": stage_type}
-
-    def build_record_source(self) -> Iterable[SourceRecord]:
-        return ()
 
     def get_source_spec(self) -> SourceSpec:
         return SourceSpec.model_validate(
@@ -140,35 +135,54 @@ class TestSpecClassRegistryContract:
     def test_invalid_ref_format_raises_value_error(self, monkeypatch):
         _patch_registry(monkeypatch, "custom", "broken-ref")
 
-        with pytest.raises(ValueError, match="expected format 'module.path:factory_or_class'"):
+        with pytest.raises(
+            ValueError, match="expected format 'module.path:factory_or_class'"
+        ):
             validate_registry()
 
     def test_factory_without_secrets_is_rejected(self, monkeypatch):
-        _patch_registry(monkeypatch, "custom", f"{__name__}:invalid_spec_factory_no_secrets")
+        _patch_registry(
+            monkeypatch, "custom", f"{__name__}:invalid_spec_factory_no_secrets"
+        )
 
-        with pytest.raises(ValueError, match="must declare optional keyword parameter 'secrets'"):
+        with pytest.raises(
+            ValueError, match="must declare optional keyword parameter 'secrets'"
+        ):
             validate_registry()
 
     def test_factory_with_required_secrets_is_rejected(self, monkeypatch):
-        _patch_registry(monkeypatch, "custom", f"{__name__}:invalid_spec_factory_required_secrets")
+        _patch_registry(
+            monkeypatch, "custom", f"{__name__}:invalid_spec_factory_required_secrets"
+        )
 
         with pytest.raises(ValueError, match="parameter 'secrets' must be optional"):
             validate_registry()
 
     def test_factory_with_positional_only_secrets_is_rejected(self, monkeypatch):
-        _patch_registry(monkeypatch, "custom", f"{__name__}:invalid_spec_factory_positional_only")
+        _patch_registry(
+            monkeypatch, "custom", f"{__name__}:invalid_spec_factory_positional_only"
+        )
 
-        with pytest.raises(ValueError, match="parameter 'secrets' must be keyword-compatible"):
+        with pytest.raises(
+            ValueError, match="parameter 'secrets' must be keyword-compatible"
+        ):
             validate_registry()
 
     def test_factory_returning_non_dataset_spec_is_rejected(self, monkeypatch):
-        _patch_registry(monkeypatch, "custom", f"{__name__}:invalid_spec_factory_wrong_return")
+        _patch_registry(
+            monkeypatch, "custom", f"{__name__}:invalid_spec_factory_wrong_return"
+        )
 
-        with pytest.raises(ValueError, match="factory must return DatasetSpec with non-empty 'dataset_name'"):
+        with pytest.raises(
+            ValueError,
+            match="factory must return DatasetSpec with non-empty 'dataset_name'",
+        ):
             validate_registry()
 
     def test_dataset_name_mismatch_is_rejected(self, monkeypatch):
-        _patch_registry(monkeypatch, "custom", f"{__name__}:invalid_spec_factory_mismatch_dataset")
+        _patch_registry(
+            monkeypatch, "custom", f"{__name__}:invalid_spec_factory_mismatch_dataset"
+        )
 
         with pytest.raises(ValueError, match="expected 'custom'"):
             validate_registry()

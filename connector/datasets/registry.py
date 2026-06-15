@@ -21,7 +21,6 @@ from connector.domain.ports.secrets.provider import SecretProviderProtocol
 _REQUIRED_DATASET_SPEC_MEMBERS = (
     "build_spec_for",
     "get_source_spec",
-    "build_record_source",
     "get_report_adapter",
     "get_apply_adapter",
     "get_diagnostic_catalog",
@@ -39,10 +38,10 @@ def _make_yaml_spec(
     return YamlDatasetSpec(artifacts, secrets)
 
 
-def _format_spec_class_error(dataset_name: str, spec_class_ref: str, reason: str) -> str:
-    return (
-        f"Invalid spec_class for dataset '{dataset_name}' ({spec_class_ref!r}): {reason}"
-    )
+def _format_spec_class_error(
+    dataset_name: str, spec_class_ref: str, reason: str
+) -> str:
+    return f"Invalid spec_class for dataset '{dataset_name}' ({spec_class_ref!r}): {reason}"
 
 
 def _import_spec_symbol(dataset_name: str, spec_class_ref: str) -> Any:
@@ -184,7 +183,7 @@ def _resolve_spec_factory(
     spec_class_ref: str,
 ) -> Callable[..., DatasetSpec]:
     """Назначение:
-        Нормализовать `spec_class` в factory с единым контрактом `factory(*, secrets=None)`.
+    Нормализовать `spec_class` в factory с единым контрактом `factory(*, secrets=None)`.
     """
     symbol = _import_spec_symbol(dataset_name, spec_class_ref)
     _assert_custom_factory_signature(dataset_name, spec_class_ref, symbol)
@@ -235,7 +234,9 @@ def _get_registry() -> dict[str, Callable[..., DatasetSpec]]:
     return _registry
 
 
-def get_spec(dataset: str, secrets: SecretProviderProtocol | None = None) -> DatasetSpec:
+def get_spec(
+    dataset: str, secrets: SecretProviderProtocol | None = None
+) -> DatasetSpec:
     """
     Возвращает DatasetSpec по имени или ValueError, если не зарегистрирован.
     """
@@ -308,7 +309,10 @@ def build_identity_index_plan(
         resolve_spec = spec.build_spec_for("resolve")
         for link_spec in resolve_spec.resolve.links:
             dataset = link_spec.target_dataset
-            if dataset in id_field_by_dataset and id_field_by_dataset[dataset] != link_spec.target_id_field:
+            if (
+                dataset in id_field_by_dataset
+                and id_field_by_dataset[dataset] != link_spec.target_id_field
+            ):
                 raise ValueError(
                     "conflicting target_id_field for dataset "
                     f"{dataset}: {id_field_by_dataset[dataset]} vs {link_spec.target_id_field}"
