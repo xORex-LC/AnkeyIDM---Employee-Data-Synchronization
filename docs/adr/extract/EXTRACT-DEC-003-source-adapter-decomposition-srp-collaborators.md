@@ -313,9 +313,12 @@ Extractor.run()  →  TransformResult[None]
 
 ## 📚 Документация
 
-**Будет обновлено при реализации**:
-- ⏳ `connector/infra/sources/README.md` — раскладка `core/`+`csv/`, роли сотрудников.
-- ⏳ `connector/domain/diagnostics/*`/каталог — новые коды `SOURCE_READ_FAILED`/`SOURCE_PARSE_FAILED`.
+**Обновлено при реализации**:
+- ✅ `connector/infra/sources/README.md` — раскладка `core/`+`csv/`, роли сотрудников.
+- ✅ `connector/infra/sources/core/README.md` — формат-агностичное ядро сборки `SourceRecord`.
+- ✅ `connector/infra/sources/csv/README.md` — CSV reader/classifier/record source и границы ответственности.
+- ✅ `connector/domain/ports/transform/README.md` — typed-exception contract источников.
+- ✅ `connector/domain/diagnostics/core_catalog.py` — коды `SOURCE_READ_FAILED`/`SOURCE_PARSE_FAILED`.
 - ✅ [worknote](../../notes/extract/EXTRACT_REFACTOR_WORKNOTE.md) — детальный дизайн Фазы 3, закрытые ОВ-C1…C5.
 
 ---
@@ -338,3 +341,4 @@ Extractor.run()  →  TransformResult[None]
 | 2026-06-16 | Дизайн проработан (сверка с polars-кодом); закрыты ОВ-C1…C5; скоуп = только декомпозиция |
 | 2026-06-16 | Решение принято |
 | 2026-06-16 | Ревью-правка: typed-exception contract перенесён в **domain** (`ports/transform/source_errors.py`) — иначе `domain → infra`; classifier сделан infra-local (`PolarsCsvErrorClassifier`); зафиксированы `str\|None` для всех источников, плановое снятие re-export, topology — вне объёма |
+| 2026-06-16 | Реализация DEC-003 завершена: source core/csv packages, granular diagnostics, cleanup старого `csv_reader.py`, финальный checkup |

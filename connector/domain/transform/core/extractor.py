@@ -22,7 +22,10 @@ from typing import Iterable
 from connector.domain.models import DiagnosticStage, RowRef
 from connector.domain.diagnostics.catalog import ErrorCatalog
 from connector.domain.diagnostics.context import error as diag_error
-from connector.domain.ports.transform.source_errors import SourceParseError, SourceReadError
+from connector.domain.ports.transform.source_errors import (
+    SourceParseError,
+    SourceReadError,
+)
 from connector.domain.ports.transform.sources import RowSource
 from connector.domain.transform.core.result import TransformResult
 from connector.domain.transform.core.source_record import SourceRecord
@@ -50,14 +53,15 @@ class Extractor:
             - Неизвестные ошибки источника фиксирует как резервную EXTRACT-ошибку.
         """
         try:
-            for record in self.source:
+            records = self.source.__iter__()
+            for record in records:
                 yield TransformResult(
                     record=record,
                     row=None,
                     row_ref=None,
                     match_key=None,
-                    errors=[],
-                    warnings=[],
+                    errors=(),
+                    warnings=(),
                 )
         except SourceReadError as exc:
             yield self._source_failure_result(exc, code="SOURCE_READ_FAILED")
@@ -66,7 +70,9 @@ class Extractor:
         except Exception as exc:  # noqa: BLE001
             yield self._source_failure_result(exc, code="SOURCE_ERROR")
 
-    def _source_failure_result(self, exc: Exception, *, code: str) -> TransformResult[None]:
+    def _source_failure_result(
+        self, exc: Exception, *, code: str
+    ) -> TransformResult[None]:
         """
         Назначение:
             Создать единый synthetic-result для потокового отказа источника.
