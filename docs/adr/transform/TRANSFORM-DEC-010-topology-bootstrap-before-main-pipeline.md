@@ -385,7 +385,7 @@ resolve projection config
 
 - source-side topology build смещается ближе к `O(distinct paths)` по числу domain-ingestion объектов;
 - bootstrap не превращается в обязательный Python object mini-pipeline на каждую source row;
-- current row-based [connector/infra/sources/csv_reader.py](../../../connector/infra/sources/csv_reader.py) не является обязательным runtime contract для topology bootstrap.
+- current row-based [connector/infra/sources/csv/record_source.py](../../../connector/infra/sources/csv/record_source.py) не является обязательным runtime contract для topology bootstrap.
 
 #### Pydantic
 

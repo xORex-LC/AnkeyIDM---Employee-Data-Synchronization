@@ -15,6 +15,7 @@
     - CacheContainer: cache gateway (Resource) + role-based порты (Singleton).
     - TargetContainer: lifecycle DefaultTargetRuntime (HTTP-клиент + gateway).
     - DictionaryContainer: lifecycle dictionary runtime v1 (optional DSL+CSV+Polars backend).
+    - SourceContainer: реестр адаптеров источников + выбор RowSource.
     - PipelineContainer: lazy transform/planning stages + orchestrators (DEC-004).
     - AppContainer: монтирует все sub-containers; единственный CR.
     - _init_container_for_requirements(): условная инициализация ресурсов по Requirements.
@@ -115,6 +116,7 @@ from connector.delivery.cli.stages import PIPELINE_CHECKPOINTS, StageName
 from connector.delivery.cli.stages import PipelineComposer
 from connector.delivery.cli.stages import build_stage_factory
 from connector.delivery.cli.dictionaries_container import DictionaryContainer
+from connector.delivery.cli.sources_container import SourceContainer
 from connector.delivery.pipelines.planning_pipeline import PlanningPipeline
 from connector.delivery.pipelines.planning_pipeline_hooks import PlanningPipelineHooks
 from connector.domain.transform_dsl import (
@@ -1029,9 +1031,14 @@ class PipelineContainer(containers.DeclarativeContainer):
 
     # ── Row source ────────────────────────────────────────────────────────────
 
+    sources = providers.Container(
+        SourceContainer,
+        app_config=app_config,
+        dataset_spec=dataset_spec,
+    )
     row_source = providers.Factory(
-        lambda s: s.build_record_source(),
-        s=dataset_spec,
+        lambda source_container: source_container.row_source(),
+        source_container=sources,
     )
 
     # ── Transform stages ──────────────────────────────────────────────────────
@@ -1048,9 +1055,9 @@ class PipelineContainer(containers.DeclarativeContainer):
     source_topology_filter_stage = providers.Factory(
         SourceTopologyFilterStage,
         validation=providers.Callable(
-            lambda state: state
-            if isinstance(state, SourceTopologyValidationState)
-            else None,
+            lambda state: (
+                state if isinstance(state, SourceTopologyValidationState) else None
+            ),
             state=source_topology_validation,
         ),
         catalog=catalog,
@@ -1165,7 +1172,7 @@ class PipelineContainer(containers.DeclarativeContainer):
             StageName.RESOLVE: resolve_stage,
         },
         checkpoints=providers.Object(PIPELINE_CHECKPOINTS),
-        default_hooks=pipeline_lifecycle_hooks,
+        default_hooks=pipeline_lifecycle_hooks.provider,
     )
 
     planning_pipeline = providers.Factory(

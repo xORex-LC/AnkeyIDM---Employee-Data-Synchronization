@@ -73,13 +73,6 @@ forbidden_modules = [
     "connector.infra",
     "connector.delivery",
 ]
-# Прямых domain -> infra импортов нет. Косвенная цепочка идёт через
-# registry/config-слой: domain.diagnostics.catalog -> datasets.registry, а
-# datasets.yaml_spec мостит на infra CSV reader. Это known debt слоя datasets
-# (csv reader стоит спрятать за порт / поднять в composition root).
-ignore_imports = [
-    "connector.datasets.yaml_spec -> connector.infra.sources.csv_reader",
-]
 
 [[tool.importlinter.contracts]]
 name = "usecases must not depend on infra or delivery"
@@ -90,11 +83,6 @@ source_modules = [
 forbidden_modules = [
     "connector.infra",
     "connector.delivery",
-]
-ignore_imports = [
-    # Тот же datasets-мост, что и у domain (см. контракт выше): enrich_usecase ->
-    # datasets.registry -> datasets.yaml_spec -> infra.sources.csv_reader.
-    "connector.datasets.yaml_spec -> connector.infra.sources.csv_reader",
 ]
 
 [[tool.importlinter.contracts]]

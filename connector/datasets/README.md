@@ -10,7 +10,7 @@
 
 | Файл | Назначение |
 |---|---|
-| `spec.py` | `DatasetSpec` (Protocol) — контракт плагина: `build_spec_for(stage_type)`, `build_record_source()`, `get_apply_adapter()`, `get_diagnostic_catalog()`, `get_report_adapter()` |
+| `spec.py` | `DatasetSpec` (Protocol) — контракт плагина: `build_spec_for(stage_type)`, `get_source_spec()`, `get_apply_adapter()`, `get_diagnostic_catalog()`, `get_report_adapter()` |
 | `registry.py` | `DatasetRegistry` — auto-discovery датасетов из `datasets/registry.yaml`; выбор factory по имени |
 | `yaml_spec.py` | `YamlDatasetSpec` — реализация `DatasetSpec` поверх YAML-артефактов |
 | `yaml_spec_loader.py` | Загружает все YAML-файлы датасета в `DatasetArtifacts` |
@@ -25,3 +25,14 @@
 ## Правило
 
 Датасет-плагин знает о своих DSL-файлах, но не содержит бизнес-логики трансформации. Новый датасет = новый YAML в `datasets/<name>/` + запись в `datasets/registry.yaml`. Python-код менять не требуется.
+
+## Extract source seam
+
+В рамках `EXTRACT-DEC-001` слой датасета не строит runtime source adapter.
+
+- `get_source_spec()` — accessor декларации источника (`SourceSpec`) без создания adapter.
+- Выбор конкретного `RowSource` выполняется в `delivery` composition root через `SourceAdapterRegistry`.
+- Ключ выбора adapter после `EXTRACT-DEC-002` — `(source.type, source.format.kind)`.
+- CSV-параметры описываются в typed format-блоке `source.format`, а `fields` остаётся advisory-описанием,
+  не runtime-валидацией строк на extract-boundary.
+- `datasets` не импортирует `infra.sources.*`; runtime path resolution принадлежит source builder'ам.

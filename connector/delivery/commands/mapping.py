@@ -36,7 +36,9 @@ def handler(ctx: BoundCommandContext, opts: Options, report_sink) -> CommandResu
         if opts.report_items_limit is not None
         else app_config.observability.reporting.items_limit
     )
-    include_mapped_items_value = opts.include_mapped_items if opts.include_mapped_items is not None else True
+    include_mapped_items_value = (
+        opts.include_mapped_items if opts.include_mapped_items is not None else True
+    )
 
     dataset_name, dataset_spec = build_dataset_spec(opts.dataset, app_config.dataset)
     catalog = ctx.catalog or build_diagnostics_catalog(
@@ -44,14 +46,18 @@ def handler(ctx: BoundCommandContext, opts: Options, report_sink) -> CommandResu
         strict=app_config.observability.diagnostics.strict,
     )
     report_sink.emit(SetMetaEvent(dataset=dataset_name))
-    report_policy = ReportPolicy.from_profile(app_config.observability.reporting.policy_profile)
+    report_policy = ReportPolicy.from_profile(
+        app_config.observability.reporting.policy_profile
+    )
 
     try:
         pipeline = ctx.container.pipeline
-        composer = pipeline.pipeline_composer()
-        with pipeline.dataset_spec.override(dataset_spec), \
-             pipeline.run_id.override(run_id), \
-             pipeline.catalog.override(catalog):
+        with (
+            pipeline.dataset_spec.override(dataset_spec),
+            pipeline.run_id.override(run_id),
+            pipeline.catalog.override(catalog),
+        ):
+            composer = pipeline.pipeline_composer()
             usecase = MappingUseCase(
                 report_items_limit=report_items_limit_value,
                 include_mapped_items=include_mapped_items_value,
@@ -67,7 +73,9 @@ def handler(ctx: BoundCommandContext, opts: Options, report_sink) -> CommandResu
                 catalog=catalog,
             )
     except sqlite3.Error as exc:
-        return sqlite_cache_error_result(logger=ctx.logger, run_id=run_id, scope="mapping", exc=exc)
+        return sqlite_cache_error_result(
+            logger=ctx.logger, run_id=run_id, scope="mapping", exc=exc
+        )
 
 
 __all__ = ["handler", "Options"]

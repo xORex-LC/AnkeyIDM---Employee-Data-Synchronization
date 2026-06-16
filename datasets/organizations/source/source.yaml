@@ -1,0 +1,22 @@
+dataset: organizations
+source:
+  type: file
+  location: "source_departments.csv"
+  format:
+    kind: csv
+    delimiter: ";"
+    encoding: "utf-8-sig"
+    has_header: true
+  fields:
+    - name: id
+      type: string
+      required: true
+      nullable: false
+    - name: name
+      type: string
+      required: true
+      nullable: false
+    - name: parent_id
+      type: string
+      required: false
+      nullable: true

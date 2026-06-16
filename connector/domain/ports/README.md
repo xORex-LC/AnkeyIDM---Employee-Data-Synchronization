@@ -11,7 +11,7 @@
 | `cache/` | Интерфейсы кэша: `CacheAdminPort`, `EnrichLookupPort`, `MatchRuntimePort`, `ResolveRuntimePort`, `ApplyRuntimePort` |
 | `target/` | Интерфейсы целевой системы: `RequestExecutorProtocol`, `TargetPagedReaderProtocol`, `ApplyAdapterProtocol` |
 | `secrets/` | Интерфейсы vault: `SecretProviderProtocol`, `SecretStoreProtocol`, `SecretCipherPort`, `VaultRepositoryPort` |
-| `transform/` | Интерфейсы для источника и справочников: `SourceMapper`, `DictionaryProviderPort` |
+| `transform/` | Интерфейсы transform-конвейера: `RowSource` (итерация источника, extract-seam), `SourceMapper` (порт map-стадии), `DictionaryProviderPort` (справочники) |
 | `topology/` | Runtime topology контракты: provider, builder ports, target read seam, source/target/readiness DTO |
 
 ## Правило

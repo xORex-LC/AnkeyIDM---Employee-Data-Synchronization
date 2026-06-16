@@ -70,7 +70,9 @@ def handler(ctx: BoundCommandContext, opts: Options, report_sink) -> CommandResu
         if opts.report_items_limit is not None
         else app_config.observability.reporting.items_limit
     )
-    include_enriched_items_value = opts.include_enriched_items if opts.include_enriched_items is not None else True
+    include_enriched_items_value = (
+        opts.include_enriched_items if opts.include_enriched_items is not None else True
+    )
 
     dataset_name, dataset_spec = build_dataset_spec(opts.dataset, app_config.dataset)
     runtime_mode_decision = resolve_vault_runtime_mode(
@@ -78,9 +80,14 @@ def handler(ctx: BoundCommandContext, opts: Options, report_sink) -> CommandResu
         requires_vault=_dataset_requires_vault(dataset_spec),
     )
     if runtime_mode_decision.reason == RUNTIME_REASON_INVALID_MODE:
-        typer.echo("ERROR: unsupported --vault-mode, expected one of: auto|on|off", err=True)
+        typer.echo(
+            "ERROR: unsupported --vault-mode, expected one of: auto|on|off", err=True
+        )
         return result_with(SystemErrorCode.INTERNAL_ERROR)
-    if runtime_mode_decision.mode == VAULT_RUNTIME_MODE_OFF and runtime_mode_decision.requires_vault:
+    if (
+        runtime_mode_decision.mode == VAULT_RUNTIME_MODE_OFF
+        and runtime_mode_decision.requires_vault
+    ):
         typer.echo(
             "ERROR: vault-mode=off cannot be used because dataset declares secret fields",
             err=True,
@@ -128,15 +135,19 @@ def handler(ctx: BoundCommandContext, opts: Options, report_sink) -> CommandResu
             },
         )
     )
-    report_policy = ReportPolicy.from_profile(app_config.observability.reporting.policy_profile)
+    report_policy = ReportPolicy.from_profile(
+        app_config.observability.reporting.policy_profile
+    )
 
     try:
         pipeline = ctx.container.pipeline
-        composer = pipeline.pipeline_composer()
-        with pipeline.dataset_spec.override(dataset_spec), \
-             pipeline.run_id.override(run_id), \
-             pipeline.catalog.override(catalog), \
-             pipeline.secret_store.override(secret_store):
+        with (
+            pipeline.dataset_spec.override(dataset_spec),
+            pipeline.run_id.override(run_id),
+            pipeline.catalog.override(catalog),
+            pipeline.secret_store.override(secret_store),
+        ):
+            composer = pipeline.pipeline_composer()
             usecase = EnrichUseCase(
                 report_items_limit=report_items_limit_value,
                 include_enriched_items=include_enriched_items_value,
@@ -151,10 +162,14 @@ def handler(ctx: BoundCommandContext, opts: Options, report_sink) -> CommandResu
                 report_policy=report_policy,
                 catalog=catalog,
             )
-            attach_dictionary_report_snapshot_if_available(ctx=ctx, report_sink=report_sink)
+            attach_dictionary_report_snapshot_if_available(
+                ctx=ctx, report_sink=report_sink
+            )
             return result
     except sqlite3.Error as exc:
-        return sqlite_cache_error_result(logger=ctx.logger, run_id=run_id, scope="enrich", exc=exc)
+        return sqlite_cache_error_result(
+            logger=ctx.logger, run_id=run_id, scope="enrich", exc=exc
+        )
 
 
 def _dataset_requires_vault(dataset_spec) -> bool:

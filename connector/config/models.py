@@ -241,6 +241,14 @@ class DatasetConfig(BaseModel):
         return _require_non_blank_path(value, field_name="registry_path")
 
 
+class ExtractConfig(BaseModel):
+    """Операционные параметры extract-источников."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    read_batch_size: int = Field(default=10_000, gt=0)
+
+
 class ExecutionConfig(BaseModel):
     """Параметры управления выполнением команды."""
 
@@ -412,6 +420,7 @@ class AppConfig(BaseModel):
     paths: PathsConfig = PathsConfig()
     observability: ObservabilityConfig = ObservabilityConfig()
     dataset: DatasetConfig = DatasetConfig()
+    extract: ExtractConfig = ExtractConfig()
     execution: ExecutionConfig = ExecutionConfig()
     refresh: RefreshConfig = RefreshConfig()
     matching_runtime: MatchingRuntimeConfig = MatchingRuntimeConfig()
@@ -438,6 +447,7 @@ __all__ = [
     "ObservabilityConfig",
     "ReportingConfig",
     "DatasetConfig",
+    "ExtractConfig",
     "ExecutionConfig",
     "RefreshConfig",
     "MatchingRuntimeConfig",

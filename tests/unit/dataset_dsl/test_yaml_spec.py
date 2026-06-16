@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from connector.common.runtime_paths import RuntimePathOverrides
@@ -20,6 +18,7 @@ from connector.domain.transform_dsl.specs import (
     NormalizeSpec,
     ResolveSpec,
     SinkSpec,
+    SourceSpec,
     TopologySpec,
 )
 from tests.runtime_test_support import (
@@ -95,7 +94,9 @@ class TestYamlDatasetSpecBuildSpecFor:
         result = spec.build_spec_for("normalize")
 
         assert isinstance(result, NormalizeSpec)
-        name_rule = next(rule for rule in result.normalize.rules if rule.field == "name")
+        name_rule = next(
+            rule for rule in result.normalize.rules if rule.field == "name"
+        )
         assert [op.op for op in name_rule.ops] == ["trim", "upper_first_preserve_rest"]
 
     def test_unsupported_stage(self, spec):
@@ -113,6 +114,17 @@ class TestYamlDatasetSpecBuildSpecFor:
 
         assert second.mapping.rules[0].target == original_target
         assert second.mapping.rules[0].target != "__mutated__"
+
+    def test_get_source_spec_returns_deep_copy_on_each_call(self, spec):
+        first = spec.get_source_spec()
+        assert isinstance(first, SourceSpec)
+        original_location = first.source.location
+        first.source.location = "__mutated__.csv"
+
+        second = spec.get_source_spec()
+
+        assert second.source.location == original_location
+        assert second.source.location != "__mutated__.csv"
 
 
 class TestYamlDatasetSpecAdapters:
@@ -191,16 +203,11 @@ class TestYamlDatasetSpecAdapters:
 
         try:
             assert isinstance(spec.build_spec_for("map"), MappingSpec)
+            assert isinstance(spec.get_source_spec(), SourceSpec)
             assert spec.get_apply_adapter().operation_alias == "users.upsert"
-            source = spec.build_record_source()
-            csv_options = artifacts.source_spec.source.csv_options()
-            assert source.has_header is True
-            assert source.delimiter == csv_options.delimiter
-            assert source.encoding == csv_options.encoding
-            assert (
-                Path(source.path)
-                == (tmp_path / "sources" / "source_employees_example_1.csv").resolve()
-            )
+            source_spec = spec.get_source_spec()
+            assert source_spec.source.format.has_header is True
+            assert source_spec.source.format == artifacts.source_spec.source.format
         finally:
             configure_runtime_paths(None)
 

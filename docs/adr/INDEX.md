@@ -211,6 +211,24 @@ docs/adr/
 | [OBSERVABILITY-PROBLEM-003](./observability/OBSERVABILITY-PROBLEM-003-non-ecs-log-shape.md) | Problem | JSON-логи структурированы, но не в формате ECS (блокирует интеграцию с Elasticsearch) | ❌ Открыто | 2026-06-09 |
 | [OBSERVABILITY-DEC-003](./observability/OBSERVABILITY-DEC-003-ecs-renderer-and-field-mapping.md) | Decision | ECS-форма JSON-логов через подмену финального рендерера (dotted-ключи, один процессор) | 🟡 Предложено | 2026-06-09 |
 
+### Extract
+
+| ID | Тип | Название | Статус | Дата |
+|----|-----|----------|--------|------|
+| [EXTRACT-PROBLEM-001](./extract/EXTRACT-PROBLEM-001-source-selection-hardcoded-and-cross-layer-coupling.md) | Problem | Выбор источника захардкожен на CSV и завязан на infra через cross-layer импорт | ✅ Закрыто | 2026-06-15 |
+| [EXTRACT-DEC-001](./extract/EXTRACT-DEC-001-source-selection-seam-and-polars-csv-adapter.md) | Decision | Шов выбора источника (registry + composition root) и миграция CSV-адаптера на polars | ✅ Принято (реализовано) | 2026-06-15 |
+| [EXTRACT-PROBLEM-002](./extract/EXTRACT-PROBLEM-002-non-polymorphic-source-spec.md) | Problem | Spec источника не полиморфен по типу — db/api непредставимы в рантайме | ✅ Закрыто | 2026-06-15 |
+| [EXTRACT-DEC-002](./extract/EXTRACT-DEC-002-polymorphic-source-spec-typed-format-blocks.md) | Decision | Полиморфно-готовый spec источника через типизированные format-блоки (`csv:`) | ✅ Принято (реализация запланирована) | 2026-06-15 |
+| [EXTRACT-PROBLEM-003](./extract/EXTRACT-PROBLEM-003-monolithic-source-adapter-no-isolation.md) | Problem | Адаптер источника монолитен и не изолирован — нет SRP-декомпозиции и упаковки | ✅ Закрыто (декомпозиция; упаковка → DEC-004) | 2026-06-16 |
+| [EXTRACT-DEC-003](./extract/EXTRACT-DEC-003-source-adapter-decomposition-srp-collaborators.md) | Decision | SRP-декомпозиция source-адаптера: формат-агностичное ядро + формат-специфичный reader | ✅ Принято (реализация запланирована) | 2026-06-16 |
+
+### Arch
+
+| ID | Тип | Название | Статус | Дата |
+|----|-----|----------|--------|------|
+| [ARCH-PROBLEM-001](./arch/ARCH-PROBLEM-001-monolith-modularity-and-navigability.md) | Problem | Горизонтально-слоёный монолит затрудняет навигацию и не изолирует стадии структурно | ✅ Закрыто | 2026-06-16 |
+| [ARCH-DEC-001](./arch/ARCH-DEC-001-modular-monolith-uv-workspace.md) | Decision | Модульный монолит на uv workspace (shared kernel + package-per-stage, bottom-up) | ✅ Принято (bootstrap запланирован) | 2026-06-16 |
+
 _(Список поддерживается как актуальный реестр ADR по слоям.)_
 
 ---

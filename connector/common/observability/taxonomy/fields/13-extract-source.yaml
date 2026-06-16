@@ -110,7 +110,7 @@ fields:
   owner: nexus
   tier: extended
   sensitive: false
-  description: Total values normalized to null by `parse_null()`
+  description: Total values normalized to null at the source adapter boundary
 - key: nexus.source.path_kind
   ecs_type: keyword
   owner: nexus

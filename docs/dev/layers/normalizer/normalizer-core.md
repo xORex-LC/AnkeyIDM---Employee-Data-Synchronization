@@ -1042,7 +1042,7 @@ fallback (`col_N`) нужен только mapper-стадии где ещё н�
 | Документ | Описание |
 |----------|---------|
 | [normalizer-dsl.md](normalizer-dsl.md) | DSL-спецификации: NormalizeSpec, NormalizeRule, 26 операций, compile-политики |
-| [mapper-core.md](../mapper/mapper-core.md) | Core-логика mapper (RowSource, CsvRecordSource, MapperCore, TransformResult) |
+| [mapper-core.md](../mapper/mapper-core.md) | Core-логика mapper (RowSource, PolarsCsvRecordSource, MapperCore, TransformResult) |
 | [docs/dev/layers/dsl/dsl-engine.md](../dsl/dsl-engine.md) | TransformationEngine, операции, OperationRegistry |
 | [docs/dev/layers/enrich/enrich-core.md](../enrich/enrich-core.md) | Следующая стадия: EnricherCore, match_key, CandidateValue |
 | `datasets/employees.normalize.yaml` | Эталонный пример normalize-спецификации |
