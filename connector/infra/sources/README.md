@@ -15,12 +15,15 @@
 | Файл | Назначение |
 |---|---|
 | `factory.py` | `SourceAdapterRegistry` и `SourceBuilder` — выбор `RowSource` по ключу `(source.type, source.format.kind)` |
-| `csv_reader.py` | `PolarsCsvRecordSource` — реализует `RowSource`: читает CSV через `polars.scan_csv().collect_batches()`, итерирует батчи как `SourceRecord`; учитывает `delimiter`, `encoding`, header/headerless-режим, BOM в первом заголовке, null/trim-нормализацию; пустые строки источника не пропускаются |
+| `core/` | Формат-агностичные сотрудники: `ValueNormalizer`, `RecordIdStrategy`, `RecordAssembler` |
+| `csv/` | CSV/Polars adapter package: `PolarsCsvFrameReader`, `PolarsCsvErrorClassifier`, `PolarsCsvRecordSource`, `build_csv_source` |
+| `csv_reader.py` | Переходный thin re-export для старых импортов `PolarsCsvRecordSource` и `build_csv_source` |
 
 ## Зависимости
 
 **Зависит от:** `polars`; `domain/transform/core/source_record.py` (контракт `SourceRecord`);
-`domain/ports/transform/sources.py` (`RowSource`); `domain/transform_dsl/specs` (`SourceSpec`).
+`domain/ports/transform/sources.py` (`RowSource`); `domain/ports/transform/source_errors.py`;
+`domain/transform_dsl/specs` (`SourceSpec`).
 **Используется:** `delivery/cli/sources_container.py` через `SourceAdapterRegistry`.
 
 ## Правило

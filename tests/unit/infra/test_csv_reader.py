@@ -1,4 +1,4 @@
-"""Юнит-тесты Polars CSV source adapter.
+"""Юнит-тесты Polars CSV-адаптера источника.
 
 Назначение:
     Проверяют runtime-паритет extract boundary после миграции CSV-чтения
@@ -11,9 +11,12 @@
 
 from __future__ import annotations
 
-import polars as pl
 import pytest
 
+from connector.domain.ports.transform.source_errors import (
+    SourceParseError,
+    SourceReadError,
+)
 from connector.infra.sources.csv_reader import PolarsCsvRecordSource
 
 
@@ -164,7 +167,7 @@ def test_csv_record_source_raises_on_ragged_line(tmp_path) -> None:
     path = tmp_path / "employees.csv"
     path.write_text("id;name\n001;A;EXTRA\n", encoding="utf-8")
 
-    with pytest.raises(pl.exceptions.ComputeError):
+    with pytest.raises(SourceParseError):
         list(
             PolarsCsvRecordSource(
                 str(path),
@@ -180,7 +183,7 @@ def test_csv_record_source_rejects_non_utf8_streaming_encoding(tmp_path) -> None
     path = tmp_path / "employees.csv"
     path.write_text("id;name\n001;Ivan\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="supports only utf-8/utf-8-sig"):
+    with pytest.raises(SourceReadError, match="supports only utf-8/utf-8-sig"):
         list(
             PolarsCsvRecordSource(
                 str(path),
