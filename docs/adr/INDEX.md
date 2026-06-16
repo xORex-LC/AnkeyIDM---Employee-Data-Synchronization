@@ -222,6 +222,13 @@ docs/adr/
 | [EXTRACT-PROBLEM-003](./extract/EXTRACT-PROBLEM-003-monolithic-source-adapter-no-isolation.md) | Problem | Адаптер источника монолитен и не изолирован — нет SRP-декомпозиции и упаковки | ✅ Закрыто (декомпозиция; упаковка → DEC-004) | 2026-06-16 |
 | [EXTRACT-DEC-003](./extract/EXTRACT-DEC-003-source-adapter-decomposition-srp-collaborators.md) | Decision | SRP-декомпозиция source-адаптера: формат-агностичное ядро + формат-специфичный reader | ✅ Принято (реализация запланирована) | 2026-06-16 |
 
+### Arch
+
+| ID | Тип | Название | Статус | Дата |
+|----|-----|----------|--------|------|
+| [ARCH-PROBLEM-001](./arch/ARCH-PROBLEM-001-monolith-modularity-and-navigability.md) | Problem | Горизонтально-слоёный монолит затрудняет навигацию и не изолирует стадии структурно | ✅ Закрыто | 2026-06-16 |
+| [ARCH-DEC-001](./arch/ARCH-DEC-001-modular-monolith-uv-workspace.md) | Decision | Модульный монолит на uv workspace (shared kernel + package-per-stage, bottom-up) | ✅ Принято (bootstrap запланирован) | 2026-06-16 |
+
 _(Список поддерживается как актуальный реестр ADR по слоям.)_
 
 ---

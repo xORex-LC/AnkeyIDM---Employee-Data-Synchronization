@@ -29,7 +29,15 @@ from connector.infra.sources.csv.reader import PolarsCsvFrameReader
 
 
 class PolarsCsvRecordSource:
-    """CSV `RowSource` поверх `PolarsCsvFrameReader` и `RecordAssembler`."""
+    """CSV `RowSource` поверх `PolarsCsvFrameReader` и `RecordAssembler`.
+
+    Примечание по атрибутам:
+        `path`/`has_header`/`delimiter`/`encoding`/`read_batch_size` хранят параметры
+        композиции и используются для построения дефолтного reader. Они описывают
+        декларацию источника, а не интроспектируются из инъектированного `reader`:
+        при передаче кастомного `reader`/`assembler` эти атрибуты остаются исходными
+        параметрами конструктора.
+    """
 
     def __init__(
         self,

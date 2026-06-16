@@ -215,7 +215,7 @@ Extractor.run()  →  TransformResult[None]
 
 ## 🛠️ Реализация
 
-> Разбивка на change-set'ы — в отдельном implementation-плане (будет оформлен позже). Здесь — состав и инварианты.
+> Разбивка на change-set'ы — в [EXTRACT_DEC_003_IMPLEMENTATION_PLAN](../../notes/extract/EXTRACT_DEC_003_IMPLEMENTATION_PLAN.md). Здесь — состав и инварианты.
 
 ### Ключевые файлы
 
@@ -277,6 +277,9 @@ Extractor.run()  →  TransformResult[None]
 - Per-record recovery не реализован (ограничение polars batch-parse); терминирование потока сохраняется.
 - `record_id` остаётся позиционным; контентный id — будущее решение.
 - `fields:` остаётся advisory; «source schema contract» — вне объёма.
+- **Edge read/parse**: реальные битые UTF-8 байты polars поднимает как `ComputeError`(⊂`PolarsError`) →
+  классифицируются как `SOURCE_PARSE_FAILED`, а не `SOURCE_READ_FAILED` (надёжно различить без fragile
+  string-matching нельзя — принято осознанно; зафиксировано в docstring `PolarsCsvErrorClassifier`).
 - **`topology_bootstrap`/`PolarsSourceAdjacencyReader` — второй CSV-потребитель — вне объёма DEC-003.**
   DEC-003 декомпозирует именно extract-source-адаптер; топология читает adjacency отдельно. Переиспользование
   `PolarsCsvFrameReader`/column-policy там — желательный follow-up (DRY), но осознанно отложено, чтобы не

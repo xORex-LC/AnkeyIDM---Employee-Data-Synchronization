@@ -53,8 +53,7 @@ class Extractor:
             - Неизвестные ошибки источника фиксирует как резервную EXTRACT-ошибку.
         """
         try:
-            records = self.source.__iter__()
-            for record in records:
+            for record in self.source:
                 yield TransformResult(
                     record=record,
                     row=None,

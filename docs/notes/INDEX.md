@@ -20,3 +20,4 @@
 - [Observability Rework Worknote](./observability/OBSERVABILITY_WORKNOTE.md)
 - [Observability Rework Implementation Plan](./observability/OBSERVABILITY_IMPLEMENTATION_PLAN.md)
 - [Extract Refactor Worknote](./extract/EXTRACT_REFACTOR_WORKNOTE.md)
+- [Modularization Vision Worknote (package-per-stage)](./modularization/MODULARIZATION_VISION_WORKNOTE.md)
