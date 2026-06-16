@@ -1,8 +1,15 @@
 # EXTRACT-PROBLEM-003: Адаптер источника монолитен и не изолирован — нет внутренней SRP-декомпозиции и упаковки
 
-> **Статус**: Открыта
+> **Статус**: Решена в [EXTRACT-DEC-003](./EXTRACT-DEC-003-source-adapter-decomposition-srp-collaborators.md) (декомпозиция; упаковка — отдельный DEC-004)
 > **Дата создания**: 2026-06-15
-> **Затронутые компоненты**: `CsvRecordSource`, `csv_utils.parse_null`, `CsvFormatError`, `connector/infra/sources/`, `connector/domain/transform/core/extractor.py`
+> **Затронутые компоненты**: `PolarsCsvRecordSource` (`_iter_batches`/`_normalize_columns`/`_normalize_value`/`_normalize_encoding`), `build_csv_source`, `SourceAdapterRegistry`, `connector/infra/sources/`, `connector/domain/transform/core/extractor.py`
+
+> **Актуализация (2026-06-16).** Исходная формулировка ниже описывает stdlib-монолит
+> (`CsvRecordSource`/`csv_utils.parse_null`/`CsvFormatError`). После [EXTRACT-DEC-001](./EXTRACT-DEC-001-source-selection-seam-and-polars-csv-adapter.md)/[EXTRACT-DEC-002](./EXTRACT-DEC-002-polymorphic-source-spec-typed-format-blocks.md)
+> эти символы удалены; адаптер — `PolarsCsvRecordSource` на `pl.scan_csv().collect_batches()`. **Суть проблемы
+> (монолит ответственностей в одном модуле) сохраняется** в новых символах; актуальная карта
+> ответственностей и предлагаемая декомпозиция — в [worknote](../../notes/extract/EXTRACT_REFACTOR_WORKNOTE.md),
+> раздел «Детальный дизайн — Фаза 3». Скоуп DEC-003 — только декомпозиция; упаковка на uv — отдельный DEC-004.
 
 ---
 
@@ -16,7 +23,14 @@
 
 ---
 
-## ⚠️ Проблема
+> **⚠️ Исходная формулировка (до DEC-001/002).** Разделы «Контекст», «Проблема», «Симптомы», «Как
+> воспроизвести» ниже описывают stdlib-монолит на момент заведения проблемы (`CsvRecordSource`,
+> `csv_utils.parse_null`, `CsvFormatError`). Эти символы удалены; актуальное состояние — `PolarsCsvRecordSource`
+> (см. блок «Актуализация» выше и [worknote](../../notes/extract/EXTRACT_REFACTOR_WORKNOTE.md), «Детальный
+> дизайн — Фаза 3»). Суть (монолит ответственностей) сохраняется в новых символах; решение — в
+> [EXTRACT-DEC-003](./EXTRACT-DEC-003-source-adapter-decomposition-srp-collaborators.md).
+
+## ⚠️ Проблема (исходная формулировка)
 
 `CsvRecordSource.__iter__` объединяет независимые зоны ответственности:
 
@@ -116,3 +130,4 @@
 | Дата | Событие |
 |------|---------|
 | 2026-06-15 | Проблема зафиксирована |
+| 2026-06-16 | Решение (декомпозиция) принято в [EXTRACT-DEC-003](./EXTRACT-DEC-003-source-adapter-decomposition-srp-collaborators.md); упаковка вынесена в будущий DEC-004 |
