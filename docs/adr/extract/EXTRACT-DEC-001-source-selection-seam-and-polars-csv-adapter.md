@@ -39,8 +39,8 @@ root, а `datasets` оставить только поставщиком дек�
    `datasets/yaml_spec.py` убирается импорт infra.
 3. **DI-субконтейнер `delivery/cli/sources_container.py`** (по образцу `dictionaries_container`):
    владеет реестром, явно регистрирует CSV-builder, предоставляет провайдер `row_source`.
-4. **polars-адаптер** `PolarsCsvRecordSource` (`infra/sources/csv_reader.py`) на
-   `pl.scan_csv().collect_batches()` + builder `build_csv_source(spec)` co-located в модуле адаптера.
+4. **polars-адаптер** `PolarsCsvRecordSource` (`infra/sources/csv/record_source.py`) на
+   `pl.scan_csv().collect_batches()` + builder `build_csv_source(spec)` в `infra/sources/csv/builder.py`.
 5. **`ExtractConfig.read_batch_size`** в `AppConfig` (операционный knob, не DSL).
 6. **Снятие `ignore_imports`** в `pyproject.toml` + architecture-тест границы `datasets → infra`.
 7. **Фаза 0 (housekeeping)**: фикс stale-доков (`infra/sources/README.md`) — описание
@@ -59,8 +59,8 @@ root, а `datasets` оставить только поставщиком дек�
 - `connector/config/models.py` → `ExtractConfig` (новая секция AppConfig).
 
 **Изменяемые компоненты**:
-- `connector/infra/sources/csv_reader.py` — `CsvRecordSource` → `PolarsCsvRecordSource` (polars,
-  batched) + `build_csv_source(spec)`.
+- `connector/infra/sources/csv/record_source.py` — `CsvRecordSource` → `PolarsCsvRecordSource` (polars,
+  batched); `connector/infra/sources/csv/builder.py` — `build_csv_source(spec)`.
 - `connector/datasets/spec.py` — Protocol `DatasetSpec`: `build_record_source()` → `get_source_spec()`.
 - `connector/datasets/yaml_spec.py` — реализация `get_source_spec()`; удалён `import CsvRecordSource`.
 - `connector/delivery/cli/containers.py` — подключение `sources_container`; провайдер `row_source`
@@ -80,7 +80,7 @@ class SourceAdapterRegistry:
     def register(self, *, type: str, format: str | None, builder: SourceBuilder) -> None: ...
     def create(self, spec: SourceSpec) -> RowSource: ...   # нет ключа → стабильная ошибка
 
-# infra/sources/csv_reader.py
+# infra/sources/csv/builder.py + infra/sources/csv/record_source.py
 def build_csv_source(spec: SourceSpec) -> RowSource: ...    # co-located builder
 class PolarsCsvRecordSource:                                # реализует RowSource
     def __iter__(self) -> Iterable[SourceRecord]: ...
@@ -153,7 +153,7 @@ Extractor(row_source, catalog)  → TransformResult[None]   (domain, без из
 | Файл | Изменение |
 |------|-----------|
 | `connector/infra/sources/factory.py` | Создан `SourceAdapterRegistry` + `SourceBuilder` |
-| `connector/infra/sources/csv_reader.py` | `CsvRecordSource` → `PolarsCsvRecordSource` (polars batched) + `build_csv_source()` |
+| `connector/infra/sources/csv/record_source.py`, `connector/infra/sources/csv/builder.py` | `CsvRecordSource` → `PolarsCsvRecordSource` (polars batched) + `build_csv_source()` |
 | `connector/delivery/cli/sources_container.py` | Создан DI-субконтейнер: реестр, регистрация CSV-builder, `row_source` |
 | `connector/datasets/spec.py` | Protocol: `build_record_source()` → `get_source_spec()` |
 | `connector/datasets/yaml_spec.py` | Реализация `get_source_spec()`; удалён импорт infra |

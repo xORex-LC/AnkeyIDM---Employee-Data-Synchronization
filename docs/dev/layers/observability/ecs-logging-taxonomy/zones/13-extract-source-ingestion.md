@@ -7,8 +7,8 @@
 В текущей архитектуре Extract — это не обычная `StageContract` стадия внутри `PipelineOrchestrator`.
 Он состоит из двух слоёв:
 
-- `PolarsCsvRecordSource` в `connector/infra/sources/csv_reader.py` — file I/O, CSV parsing, null
-  normalization, structural CSV failures;
+- `PolarsCsvFrameReader` / `PolarsCsvRecordSource` в `connector/infra/sources/csv/` — file I/O,
+  CSV parsing, null normalization, structural CSV failures;
 - `Extractor` в `connector/domain/transform/core/extractor.py` — stream boundary, wrapping
   `SourceRecord` в `TransformResult`, conversion source exceptions → `SOURCE_ERROR`.
 

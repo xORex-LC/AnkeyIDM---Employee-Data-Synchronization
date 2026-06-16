@@ -15,7 +15,7 @@
 
 ## Реализация
 
-`RowSource` → `infra/sources/csv_reader.py` (`PolarsCsvRecordSource`)
+`RowSource` → `infra/sources/csv/record_source.py` (`PolarsCsvRecordSource`)
 `SourceReadError` / `SourceParseError` → выбрасываются source-адаптерами при stream-level отказе; `Extractor` классифицирует их как `SOURCE_READ_FAILED` / `SOURCE_PARSE_FAILED`, остальные исключения остаются fallback `SOURCE_ERROR`.
 `SourceMapper` → `domain/transform/mapping/mapper_engine.py` (`MapperEngine`); потребитель — `MapStage` (`domain/transform/stages/stages.py`). Реализация map-порта живёт в `domain` (mapping — доменная DSL-логика), а не в `infra`.
 `DictionaryProviderPort` → `infra/dictionaries/provider.py`

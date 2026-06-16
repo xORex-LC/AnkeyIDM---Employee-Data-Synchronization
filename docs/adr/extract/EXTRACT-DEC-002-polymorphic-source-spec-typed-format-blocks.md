@@ -63,7 +63,7 @@
   +`has_header`); `SourceFormat` (discriminated union); `SourceConfig` (`format: SourceFormat`, удалены
   `options`/top-level `has_header`/`csv_options()`; before-валидатор миграции; after-валидатор `type==file → location`).
 - `connector/infra/sources/factory.py` — ключ `(type, format.kind)`; ошибка `create()` перечисляет registered keys.
-- `connector/infra/sources/csv_reader.py` — `build_csv_source`: читает `spec.source.format` (типизированный `CsvSourceFormat`).
+- `connector/infra/sources/csv/builder.py` — `build_csv_source`: читает `spec.source.format` (типизированный `CsvSourceFormat`).
 - `connector/delivery/cli/runtime/topology_bootstrap.py` — второй CSV-потребитель: `spec.source.format.{delimiter,encoding,has_header}`.
 - `datasets/employees/source/source.yaml`, `datasets/organizations/source/source.yaml` — миграция на `format: {kind: csv, …}`.
 - `transform_dsl/specs/__init__.py`, `transform_dsl/__init__.py` — экспорт `CsvSourceFormat`/`SourceFormat` (вместо `CsvSourceOptions`).
@@ -174,7 +174,7 @@ build_csv_source(spec): fmt = spec.source.format → PolarsCsvRecordSource(delim
 |------|-----------|
 | `connector/domain/transform_dsl/specs/source.py` | `CsvSourceFormat` (+`kind`/`has_header`), `SourceFormat` union, `SourceConfig` (`format: SourceFormat`, before/after-валидаторы, удалены `options`/`has_header`/`csv_options`) |
 | `connector/infra/sources/factory.py` | ключ `(type, format.kind)`; `create()` перечисляет registered keys |
-| `connector/infra/sources/csv_reader.py` | `build_csv_source` читает `spec.source.format` (`CsvSourceFormat`) |
+| `connector/infra/sources/csv/builder.py` | `build_csv_source` читает `spec.source.format` (`CsvSourceFormat`) |
 | `connector/delivery/cli/runtime/topology_bootstrap.py` | `spec.source.format.{delimiter,encoding,has_header}` |
 | `datasets/employees/source/source.yaml`, `datasets/organizations/source/source.yaml` | миграция на `format: {kind: csv, …}` |
 | `transform_dsl/specs/__init__.py`, `transform_dsl/__init__.py` | экспорт `CsvSourceFormat`/`SourceFormat` |

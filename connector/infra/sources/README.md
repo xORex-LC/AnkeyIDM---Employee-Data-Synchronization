@@ -17,7 +17,6 @@
 | `factory.py` | `SourceAdapterRegistry` и `SourceBuilder` — выбор `RowSource` по ключу `(source.type, source.format.kind)` |
 | `core/` | Формат-агностичные сотрудники: `ValueNormalizer`, `RecordIdStrategy`, `RecordAssembler` |
 | `csv/` | CSV/Polars adapter package: `PolarsCsvFrameReader`, `PolarsCsvErrorClassifier`, `PolarsCsvRecordSource`, `build_csv_source` |
-| `csv_reader.py` | Переходный thin re-export для старых импортов `PolarsCsvRecordSource` и `build_csv_source` |
 
 ## Зависимости
 

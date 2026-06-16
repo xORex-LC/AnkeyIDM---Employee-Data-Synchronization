@@ -11,7 +11,7 @@ from connector.domain.transform.core.result import TransformResult
 from connector.domain.transform.mapping import MapperEngine
 from connector.domain.transform.normalize import NormalizerEngine
 from connector.common.runtime_paths import RuntimePathOverrides
-from connector.infra.sources.csv_reader import build_csv_source
+from connector.infra.sources.csv.builder import build_csv_source
 from tests.integration.secrets._temp_registry import (
     build_temp_employees_registry_with_temp_dictionaries,
 )

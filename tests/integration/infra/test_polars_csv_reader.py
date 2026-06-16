@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from connector.infra.sources.csv_reader import PolarsCsvRecordSource
+from connector.infra.sources.csv.record_source import PolarsCsvRecordSource
 
 
 @pytest.mark.integration

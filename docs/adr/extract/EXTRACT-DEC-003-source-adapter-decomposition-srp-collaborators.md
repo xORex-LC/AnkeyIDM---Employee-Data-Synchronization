@@ -10,7 +10,7 @@
 ## 📋 Контекст
 
 После [EXTRACT-DEC-001](./EXTRACT-DEC-001-source-selection-seam-and-polars-csv-adapter.md)/[EXTRACT-DEC-002](./EXTRACT-DEC-002-polymorphic-source-spec-typed-format-blocks.md)
-единственная реализация источника — `PolarsCsvRecordSource` (`infra/sources/csv_reader.py`) на
+единственная реализация источника — `PolarsCsvRecordSource` (`infra/sources/csv/record_source.py`) на
 `pl.scan_csv().collect_batches()`. Она по-прежнему совмещает несколько зон ответственности в одном модуле
 (I/O+parse, декод колонок, сборка `SourceRecord`, null/str-политика, encoding), а классификация ошибок
 отсутствует: любое исключение источника всплывает в `Extractor` и фиксируется единым `SOURCE_ERROR`
@@ -92,8 +92,8 @@ ErrorClassifier (read+parse+decode слиты внутри polars `scan_csv`, о
 - `builder.py` — `build_csv_source` (перенос; контракт `(SourceSpec) → RowSource` неизменен).
 
 **Изменяемые компоненты**:
-- `connector/infra/sources/csv_reader.py` — расформировывается в `csv/`; на переход остаётся **тонкий
-  re-export**, удаляемый отдельным cleanup change-set'ом (не permanent compatibility debt — см. Риски).
+- `connector/infra/sources/csv/` — новый пакет CSV-адаптера; переходный re-export `csv_reader.py`
+  удалён в cleanup change-set'е.
 - `connector/domain/transform/core/extractor.py` — ловит доменные `SourceReadError`/`SourceParseError` →
   `SOURCE_READ_FAILED`/`SOURCE_PARSE_FAILED`; fallback `Exception` → `SOURCE_ERROR`.
 - `connector/domain/diagnostics/core_catalog.py` — `CatalogEntry("SOURCE_READ_FAILED", IO_ERROR)` и
@@ -191,7 +191,7 @@ Extractor.run()  →  TransformResult[None]
   и упаковке; ядро переиспользуемо).
 - ⚠️ Per-record recovery не вводится (ограничение polars batch-parse) — терминирование сохраняется;
   механизм закладывается, но реализуется с первым построчным адаптером.
-- ⚠️ Переходный re-export `csv_reader.py` до обновления всех импортов (снимается в плане реализации).
+- ✅ Переходный re-export `csv_reader.py` удалён после обновления импортов в code/tests.
 
 **Альтернативы, которые отклонили**:
 - ❌ **Строгий 4-way Reader/Decoder/RecordBuilder/ErrorClassifier**: для polars read+parse слиты в
@@ -229,7 +229,7 @@ Extractor.run()  →  TransformResult[None]
 | `connector/infra/sources/csv/errors.py` | **Создан** `PolarsCsvErrorClassifier` (infra-local; polars/OS → доменные typed-exceptions) |
 | `connector/infra/sources/csv/record_source.py` | `PolarsCsvRecordSource` (композиция reader+assembler) |
 | `connector/infra/sources/csv/builder.py` | `build_csv_source` (перенос) |
-| `connector/infra/sources/csv_reader.py` | Переходный re-export → `csv/`; **снимается отдельным cleanup change-set'ом** |
+| `connector/infra/sources/csv/` | CSV adapter package: reader, classifier, record source, builder |
 | `connector/domain/transform/core/extractor.py` | `except SourceReadError/SourceParseError` → гранулярные коды; fallback → `SOURCE_ERROR` |
 | `connector/domain/diagnostics/core_catalog.py` | `SOURCE_READ_FAILED` (IO_ERROR), `SOURCE_PARSE_FAILED` (DATA_INVALID) |
 | `connector/delivery/cli/sources_container.py` | Сборка адаптера из сотрудников ядра |
@@ -284,9 +284,8 @@ Extractor.run()  →  TransformResult[None]
 
 **Риски**:
 - ⚠️ Регресс контрактов при переносе логики → **Митигация**: parity-тесты до/после; перенос без изменения поведения.
-- ⚠️ Переходный re-export `csv_reader.py` станет permanent compatibility debt → **Митигация**: снятие
-  re-export — **отдельный cleanup change-set** в плане реализации (после обновления всех импортов; греп
-  `from connector.infra.sources.csv_reader import`), а не «навсегда».
+- ✅ Переходный re-export `csv_reader.py` не стал permanent compatibility debt: cleanup change-set
+  обновляет imports в code/tests и удаляет модуль совместимости.
 - ⚠️ Неверная классификация polars-исключений (read vs parse) → **Митигация**: `PolarsCsvErrorClassifier`
   (infra-local) с тестами на типовые исключения; **неизвестное не заворачивается** (`classify → None`,
   reader пробрасывает исходное) → детерминированный fallback `Extractor` (`SOURCE_ERROR`).

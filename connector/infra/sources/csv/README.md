@@ -19,5 +19,3 @@ Polars/OS ошибок в доменные source exceptions.
 
 `csv/` знает про `polars` и CSV-физику, но не знает про `ErrorCatalog`, downstream-стадии
 и бизнес-семантику колонок. Значения и `record_id` собираются через `infra/sources/core`.
-
-`connector/infra/sources/csv_reader.py` временно остаётся thin re-export для старых импортов.

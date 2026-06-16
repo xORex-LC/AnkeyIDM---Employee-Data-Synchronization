@@ -18,7 +18,7 @@
 Цель рефактора — строго разграничить бизнес-логику извлечения по зонам ответственности (SOLID/SRP)
 и в итоге выделить extract в отдельный пакет (или набор пакетов), так как проект — monorepo.
 
-Сейчас единственная реализация источника `CsvRecordSource` (`infra/sources/csv_reader.py`) совмещает
+На момент фиксации проблемы единственная реализация источника `CsvRecordSource` совмещала
 несколько ответственностей в одном классе/методе `__iter__`.
 
 ---
@@ -119,7 +119,7 @@
 - [EXTRACT-PROBLEM-001](./EXTRACT-PROBLEM-001-source-selection-hardcoded-and-cross-layer-coupling.md) — шов выбора источника
 - [EXTRACT-PROBLEM-002](./EXTRACT-PROBLEM-002-non-polymorphic-source-spec.md) — полиморфный spec источника
 - [EXTRACT_REFACTOR_WORKNOTE](../../notes/extract/EXTRACT_REFACTOR_WORKNOTE.md) — анализ и дорожная карта
-- `connector/infra/sources/csv_reader.py` — `CsvRecordSource`
+- бывший CSV reader module — `CsvRecordSource`
 - `connector/infra/sources/csv_utils.py` — `parse_null`, `CsvFormatError`
 - `connector/domain/transform/core/source_record.py` — `SourceRecord` (контракт записи)
 

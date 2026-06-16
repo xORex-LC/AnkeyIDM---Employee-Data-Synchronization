@@ -285,7 +285,7 @@ class TransformResultBuilder(Generic[T]):
 
 ### PolarsCsvRecordSource — чтение CSV
 
-**Файл:** `connector/infra/sources/csv_reader.py`
+**Файл:** `connector/infra/sources/csv/record_source.py`
 
 **Два режима:** зависит от `has_header: bool`.
 
@@ -610,7 +610,7 @@ Delivery и stages импортируют из `connector.domain.transform.mappi
 
 ```python
 # ПРАВИЛЬНО: delivery создаёт конкретный источник
-from connector.infra.sources.csv_reader import PolarsCsvRecordSource
+from connector.infra.sources.csv.record_source import PolarsCsvRecordSource
 
 # ПРАВИЛЬНО: domain работает с Protocol
 from connector.domain.ports.transform.sources import RowSource, SourceMapper
@@ -619,7 +619,7 @@ from connector.domain.ports.transform.sources import RowSource, SourceMapper
 # from connector.delivery import ...
 
 # ЗАПРЕЩЕНО: mapper-core не импортирует конкретный источник напрямую
-# from connector.infra.sources.csv_reader import PolarsCsvRecordSource  # только delivery
+# from connector.infra.sources.csv.record_source import PolarsCsvRecordSource  # только delivery
 
 # ЗАПРЕЩЕНО: MapStage не знает о конкретном MapperEngine
 # from connector.domain.transform.mapping import MapperEngine  # только delivery
@@ -1095,7 +1095,7 @@ def test_employees_dsl_mapper_maps_record() -> None:
 | `connector/domain/transform/core/result.py` | TransformResult, TransformResultBuilder |
 | `connector/domain/transform/core/source_record.py` | SourceRecord |
 | `connector/domain/transform/stages/stages.py` | MapStage, PipelineOrchestrator и все стадии |
-| `connector/infra/sources/csv_reader.py` | PolarsCsvRecordSource |
+| `connector/infra/sources/csv/record_source.py` | PolarsCsvRecordSource |
 
 ---
 

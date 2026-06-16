@@ -2,7 +2,7 @@
 
 Пакет содержит CSV/Polars-сотрудников, которые читают CSV,
 классифицируют low-level ошибки и передают raw-row в формат-агностичное
-source core. Внешний compatibility import пока сохраняет `csv_reader.py`.
+ядро источников.
 
 Ответственность:
     - Читать CSV через `polars.scan_csv().collect_batches()`.

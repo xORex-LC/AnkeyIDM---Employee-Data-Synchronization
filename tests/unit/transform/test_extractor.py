@@ -20,8 +20,12 @@ from collections.abc import Iterable
 import pytest
 
 from connector.domain.diagnostics.core_catalog import build_core_catalog
+from connector.domain.diagnostics.policies import SystemErrorCode
 from connector.domain.models import DiagnosticStage
-from connector.domain.ports.transform.source_errors import SourceParseError, SourceReadError
+from connector.domain.ports.transform.source_errors import (
+    SourceParseError,
+    SourceReadError,
+)
 from connector.domain.transform.core.extractor import Extractor
 from connector.domain.transform.core.source_record import SourceRecord
 
@@ -65,14 +69,30 @@ def test_extractor_wraps_source_records_without_diagnostics() -> None:
 
 
 @pytest.mark.parametrize(
-    ("exc", "expected_code"),
+    ("exc", "expected_code", "expected_system_code"),
     [
-        (SourceReadError("cannot read source"), "SOURCE_READ_FAILED"),
-        (SourceParseError("cannot parse source"), "SOURCE_PARSE_FAILED"),
-        (RuntimeError("unexpected source failure"), "SOURCE_ERROR"),
+        (
+            SourceReadError("cannot read source"),
+            "SOURCE_READ_FAILED",
+            SystemErrorCode.IO_ERROR,
+        ),
+        (
+            SourceParseError("cannot parse source"),
+            "SOURCE_PARSE_FAILED",
+            SystemErrorCode.DATA_INVALID,
+        ),
+        (
+            RuntimeError("unexpected source failure"),
+            "SOURCE_ERROR",
+            SystemErrorCode.IO_ERROR,
+        ),
     ],
 )
-def test_extractor_classifies_source_stream_failures(exc: Exception, expected_code: str) -> None:
+def test_extractor_classifies_source_stream_failures(
+    exc: Exception,
+    expected_code: str,
+    expected_system_code: SystemErrorCode,
+) -> None:
     catalog = build_core_catalog(strict=True)
 
     results = list(Extractor(_FailingSource(exc), catalog).run())
@@ -91,3 +111,4 @@ def test_extractor_classifies_source_stream_failures(exc: Exception, expected_co
     assert error.stage is DiagnosticStage.EXTRACT
     assert error.record_ref == result.row_ref
     assert error.message == str(exc)
+    assert catalog.classify(error.code) is expected_system_code

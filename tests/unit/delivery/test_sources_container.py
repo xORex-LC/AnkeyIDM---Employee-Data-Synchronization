@@ -16,7 +16,7 @@ from connector.config.models import AppConfig, ExtractConfig
 from connector.delivery.cli.containers import PipelineContainer
 from connector.delivery.cli.sources_container import SourceContainer
 from connector.domain.transform_dsl.specs import SourceSpec
-from connector.infra.sources.csv_reader import PolarsCsvRecordSource
+from connector.infra.sources.csv.record_source import PolarsCsvRecordSource
 
 
 class _DatasetSpec:

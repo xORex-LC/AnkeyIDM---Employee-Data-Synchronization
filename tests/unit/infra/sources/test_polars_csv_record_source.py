@@ -13,11 +13,14 @@ from __future__ import annotations
 
 import pytest
 
+from connector.domain.diagnostics.core_catalog import build_core_catalog
+from connector.domain.diagnostics.policies import SystemErrorCode
 from connector.domain.ports.transform.source_errors import (
     SourceParseError,
     SourceReadError,
 )
-from connector.infra.sources.csv_reader import PolarsCsvRecordSource
+from connector.domain.transform.core.extractor import Extractor
+from connector.infra.sources.csv.record_source import PolarsCsvRecordSource
 
 
 @pytest.mark.unit
@@ -192,3 +195,60 @@ def test_csv_record_source_rejects_non_utf8_streaming_encoding(tmp_path) -> None
                 encoding="cp1251",
             )
         )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("source", "expected_code", "expected_system_code"),
+    [
+        (
+            lambda path: PolarsCsvRecordSource(
+                str(path / "missing.csv"),
+                has_header=True,
+                delimiter=";",
+                encoding="utf-8",
+            ),
+            "SOURCE_READ_FAILED",
+            SystemErrorCode.IO_ERROR,
+        ),
+        (
+            lambda path: PolarsCsvRecordSource(
+                str(path / "employees.csv"),
+                has_header=True,
+                delimiter=";",
+                encoding="cp1251",
+            ),
+            "SOURCE_READ_FAILED",
+            SystemErrorCode.IO_ERROR,
+        ),
+        (
+            lambda path: PolarsCsvRecordSource(
+                str(path / "ragged.csv"),
+                has_header=True,
+                delimiter=";",
+                encoding="utf-8",
+            ),
+            "SOURCE_PARSE_FAILED",
+            SystemErrorCode.DATA_INVALID,
+        ),
+    ],
+)
+def test_csv_record_source_errors_flow_through_extractor_diagnostics(
+    tmp_path,
+    source,
+    expected_code: str,
+    expected_system_code: SystemErrorCode,
+) -> None:
+    (tmp_path / "employees.csv").write_text("id;name\n001;Ivan\n", encoding="utf-8")
+    (tmp_path / "ragged.csv").write_text("id;name\n001;A;EXTRA\n", encoding="utf-8")
+    catalog = build_core_catalog(strict=True)
+
+    results = list(Extractor(source(tmp_path), catalog).run())
+
+    assert len(results) == 1
+    result = results[0]
+    assert result.row is None
+    assert result.record.record_id == "source"
+    assert result.errors
+    assert result.errors[0].code == expected_code
+    assert catalog.classify(result.errors[0].code) is expected_system_code

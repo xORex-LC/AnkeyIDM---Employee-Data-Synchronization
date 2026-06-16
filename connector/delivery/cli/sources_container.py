@@ -14,7 +14,7 @@ from __future__ import annotations
 from dependency_injector import containers, providers
 
 from connector.config.models import AppConfig
-from connector.infra.sources.csv_reader import build_csv_source
+from connector.infra.sources.csv.builder import build_csv_source
 from connector.infra.sources.factory import SourceAdapterRegistry
 
 
