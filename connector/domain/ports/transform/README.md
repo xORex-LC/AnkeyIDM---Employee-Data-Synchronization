@@ -10,11 +10,13 @@
 |---|---|---|
 | `sources.py` | `RowSource` | Итерация строк источника: `__iter__() -> Iterable[SourceRecord]` (extract-seam) |
 | `sources.py` | `SourceMapper[T]` | Порт map-стадии: `map(record: SourceRecord) -> TransformResult[T]` (сырьё → первая доменная строка) |
+| `source_errors.py` | `SourceAdapterError`, `SourceReadError`, `SourceParseError` | Typed exceptions на границе `RowSource`: адаптер сообщает тип отказа, `Extractor` переводит его в diagnostics |
 | `dictionaries.py` | `DictionaryProviderPort` | `lookup(key, field)`, `contains(key)`, `canonicalize(value)` — поиск в справочнике |
 
 ## Реализация
 
 `RowSource` → `infra/sources/csv_reader.py` (`PolarsCsvRecordSource`)
+`SourceReadError` / `SourceParseError` → выбрасываются source-адаптерами при stream-level отказе; `Extractor` классифицирует их как `SOURCE_READ_FAILED` / `SOURCE_PARSE_FAILED`, остальные исключения остаются fallback `SOURCE_ERROR`.
 `SourceMapper` → `domain/transform/mapping/mapper_engine.py` (`MapperEngine`); потребитель — `MapStage` (`domain/transform/stages/stages.py`). Реализация map-порта живёт в `domain` (mapping — доменная DSL-логика), а не в `infra`.
 `DictionaryProviderPort` → `infra/dictionaries/provider.py`
 

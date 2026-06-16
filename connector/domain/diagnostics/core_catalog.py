@@ -20,6 +20,16 @@ def build_core_catalog(*, strict: bool) -> ErrorCatalog:
             "SOURCE_ERROR", SystemErrorCode.IO_ERROR, severity=DiagnosticSeverity.ERROR
         ),
         CatalogEntry(
+            "SOURCE_READ_FAILED",
+            SystemErrorCode.IO_ERROR,
+            severity=DiagnosticSeverity.ERROR,
+        ),
+        CatalogEntry(
+            "SOURCE_PARSE_FAILED",
+            SystemErrorCode.DATA_INVALID,
+            severity=DiagnosticSeverity.ERROR,
+        ),
+        CatalogEntry(
             "missing_source_column",
             SystemErrorCode.DATA_INVALID,
             severity=DiagnosticSeverity.ERROR,
