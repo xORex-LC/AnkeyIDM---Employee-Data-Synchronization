@@ -22,7 +22,7 @@ TAXONOMY_ROOT = REPO_ROOT / "connector" / "common" / "observability" / "taxonomy
 def test_load_observability_taxonomy_builds_runtime_registry() -> None:
     registry = load_observability_taxonomy(TAXONOMY_ROOT)
 
-    assert len(registry.action_names) == 183
+    assert len(registry.action_names) == 184
     assert len(registry.canonical_field_keys) == 410
     assert registry.ecs_version == "8.11"
     assert registry.field_aliases["component"] == "service.type"
@@ -31,6 +31,7 @@ def test_load_observability_taxonomy_builds_runtime_registry() -> None:
     assert registry.action("stage-completed") is not None
     assert registry.default_level_for("stage-completed") == LogLevel.INFO
     assert registry.kind_for("stage-completed") == EventKind.METRIC
+    assert registry.default_level_for("taxonomy-load-degraded") == LogLevel.WARNING
 
 
 def test_load_observability_taxonomy_exposes_sensitive_metadata() -> None:

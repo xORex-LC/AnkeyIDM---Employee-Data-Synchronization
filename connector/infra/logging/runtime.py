@@ -41,7 +41,12 @@ from connector.common.observability import ObservabilityLayout, ServiceComponent
 from connector.config.models import LoggingConfig, LogLevelName
 from .ecs import EcsTransform, make_ecs_transform
 from .redaction import LogRedactionEngine
-from .taxonomy import load_observability_taxonomy
+from .taxonomy import (
+    ObservabilityTaxonomyRegistry,
+    TaxonomyLoadError,
+    empty_observability_taxonomy,
+    load_observability_taxonomy,
+)
 
 if TYPE_CHECKING:
     from connector.common.observability import ComponentIdentity
@@ -359,6 +364,7 @@ class StructuredLoggingRuntime:
     handler_stack: StructlogHandlerStack
     redaction_engine: LogRedactionEngine
     runtime_meta: LoggingRuntimeMeta = LoggingRuntimeMeta()
+    taxonomy_degraded_reason: str | None = None
 
     def get_logger(
         self,
@@ -436,10 +442,12 @@ def build_structured_logging_runtime(
     app_version: str | None = None,
     git_rev: str | None = None,
     interactive_io_gate: InteractiveIoGate | None = None,
+    strict_taxonomy: bool = False,
 ) -> StructuredLoggingRuntime:
     """Сконфигурировать structlog runtime для одного service-component."""
     runtime_meta = LoggingRuntimeMeta(app_version=app_version, git_rev=git_rev)
-    ecs_processor = _build_ecs_processor(config)
+    ecs_registry = _load_ecs_registry(config, strict_taxonomy=strict_taxonomy)
+    ecs_processor = _build_ecs_processor(config, registry=ecs_registry)
     root_logger = logging.getLogger(root_logger_name)
     root_logger.handlers.clear()
     root_logger.setLevel(logging.NOTSET)
@@ -472,6 +480,9 @@ def build_structured_logging_runtime(
         handler_stack=handler_stack,
         redaction_engine=redaction_engine,
         runtime_meta=runtime_meta,
+        taxonomy_degraded_reason=ecs_registry.degraded_reason
+        if ecs_registry is not None
+        else None,
     )
 
 
@@ -662,10 +673,35 @@ def _build_file_handler(
     return handler
 
 
-def _build_ecs_processor(config: LoggingConfig) -> EcsTransform | None:
+def _load_ecs_registry(
+    config: LoggingConfig, *, strict_taxonomy: bool
+) -> ObservabilityTaxonomyRegistry | None:
+    """Загрузить taxonomy registry или вернуть degraded registry по policy.
+
+    Если JSON sinks не активны, registry не нужен. Strict mode поднимает
+    `TaxonomyLoadError` до настройки handler stack, чтобы bootstrap failure был
+    видимым до первого log event.
+    """
     if not _has_json_sink(config):
         return None
-    return make_ecs_transform(load_observability_taxonomy())
+    try:
+        return load_observability_taxonomy()
+    except TaxonomyLoadError as exc:
+        if strict_taxonomy:
+            raise
+        return empty_observability_taxonomy(reason=str(exc))
+
+
+def _build_ecs_processor(
+    config: LoggingConfig,
+    *,
+    registry: ObservabilityTaxonomyRegistry | None,
+) -> EcsTransform | None:
+    if not _has_json_sink(config):
+        return None
+    if registry is None:
+        return None
+    return make_ecs_transform(registry)
 
 
 def _has_json_sink(config: LoggingConfig) -> bool:

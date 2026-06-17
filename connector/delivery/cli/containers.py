@@ -245,6 +245,7 @@ def structured_logging_runtime_resource(
         stderr_stream=stderr_stream,
         root_logger_name="",
         interactive_io_gate=interactive_io_gate,
+        strict_taxonomy=config.observability.diagnostics.strict,
     )
     yield runtime
     runtime.close()

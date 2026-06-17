@@ -26,6 +26,10 @@
 - Phase 2 вводит валидированный taxonomy registry: YAML читается на bootstrap/в тестах, а не как
   произвольная логика call-site-ов. Bare `ecs_transform` оставлен только как compatibility/test
   surface поверх default registry; runtime его напрямую не использует.
+- Если registry не загружается, `strict_taxonomy=true` прерывает bootstrap понятным
+  `TaxonomyLoadError` до настройки handlers. В non-strict режиме runtime использует empty
+  degraded registry, сохраняет `taxonomy_degraded_reason` и orchestration эмитит один
+  `taxonomy-load-degraded` WARNING после успешной инициализации logging runtime.
 - Во время интерактивных prompt-секций console mirror временно suppress-ится через `InteractiveIoGate`, но файловый sink продолжает писать события.
 - `console.format=text` рендерится как операторский однострочный формат вида `[INFO] vault core: Command started | run_id=... | ...`.
 - `file.format=text` остаётся плоским `key=value`-форматом, но поля разделяются через ` | ` для лучшей читаемости.

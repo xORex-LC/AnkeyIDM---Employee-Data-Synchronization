@@ -68,6 +68,18 @@ class RuntimeLifecycleEventAdapter(RuntimeLifecycleEvents):
             )
         )
 
+    def taxonomy_load_degraded(self, *, reason: str) -> None:
+        self._sink.emit(
+            ObservabilityEvent(
+                action="taxonomy-load-degraded",
+                message="Observability taxonomy load degraded",
+                fields={"scope": "observability", "reason": _safe_reason(reason)},
+                level=LogLevel.WARNING,
+                outcome=EventOutcome.FAILURE,
+                kind=EventKind.EVENT,
+            )
+        )
+
 
 class PipelineLifecycleEventAdapter(PipelineLifecycleEvents):
     """Публиковать pipeline stage lifecycle events через observability sink."""
@@ -161,3 +173,8 @@ def _as_log_field_value(value: object) -> LogFieldValue:
     ):
         return value
     return str(value)
+
+
+def _safe_reason(reason: str) -> str:
+    """Ограничить diagnostic reason безопасной однострочной строкой."""
+    return " ".join(str(reason).split())

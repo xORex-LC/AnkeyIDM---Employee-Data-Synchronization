@@ -34,11 +34,13 @@ from connector.config.models import (
 from connector.delivery.cli.stream_capture import StdStreamToLogger
 from connector.infra.logging.event_sink import StructlogObservabilityEventSink
 from connector.infra.logging.redaction import LogRedactionEngine
+import connector.infra.logging.runtime as runtime_module
 from connector.infra.logging.runtime import (
     DailySizeRotatingFileHandler,
     bind_observability_context,
     build_structured_logging_runtime,
 )
+from connector.infra.logging.taxonomy import TaxonomyLoadError
 
 pytestmark = pytest.mark.unit
 
@@ -199,6 +201,79 @@ def test_text_formatter_does_not_enable_ecs_transform(tmp_path: Path) -> None:
     )
 
     assert _ecs_transform_processors(_formatter_processors(runtime)) == []
+    runtime.close()
+
+
+def test_strict_taxonomy_failure_raises_before_runtime_is_built(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _raise_taxonomy_error():
+        raise TaxonomyLoadError("broken taxonomy")
+
+    monkeypatch.setattr(
+        runtime_module, "load_observability_taxonomy", _raise_taxonomy_error
+    )
+
+    with pytest.raises(TaxonomyLoadError, match="broken taxonomy"):
+        build_structured_logging_runtime(
+            config=LoggingConfig(
+                sinks=LoggingSinksConfig(
+                    file=FileLoggingSinkConfig(enabled=False),
+                    console=ConsoleLoggingSinkConfig(
+                        enabled=True, stream="stderr", format="json"
+                    ),
+                )
+            ),
+            layout=_layout(tmp_path),
+            redaction_engine=LogRedactionEngine(ObservabilityRedactionPolicy()),
+            component=ServiceComponent.MAPPER,
+            stderr_stream=io.StringIO(),
+            root_logger_name="",
+            strict_taxonomy=True,
+        )
+
+
+def test_non_strict_taxonomy_failure_keeps_json_runtime_usable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = 0
+
+    def _raise_taxonomy_error():
+        nonlocal calls
+        calls += 1
+        raise TaxonomyLoadError("broken taxonomy")
+
+    monkeypatch.setattr(
+        runtime_module, "load_observability_taxonomy", _raise_taxonomy_error
+    )
+    stderr = io.StringIO()
+    runtime = build_structured_logging_runtime(
+        config=LoggingConfig(
+            sinks=LoggingSinksConfig(
+                file=FileLoggingSinkConfig(enabled=False),
+                console=ConsoleLoggingSinkConfig(
+                    enabled=True, stream="stderr", format="json"
+                ),
+            )
+        ),
+        layout=_layout(tmp_path),
+        redaction_engine=LogRedactionEngine(ObservabilityRedactionPolicy()),
+        component=ServiceComponent.MAPPER,
+        stderr_stream=stderr,
+        root_logger_name="",
+        strict_taxonomy=False,
+    )
+
+    logger = runtime.get_logger(ServiceComponent.MAPPER, logger_name="tests.degraded")
+    logger.warning("Taxonomy degraded", action="taxonomy-load-degraded")
+    payload = _json_line(stderr)[0]
+
+    assert calls == 1
+    assert runtime.taxonomy_degraded_reason == "broken taxonomy"
+    assert payload["message"] == "Taxonomy degraded"
+    assert payload["log.level"] == "warning"
+    assert payload["labels.action"] == "taxonomy-load-degraded"
+    assert "event.action" not in payload
     runtime.close()
 
 

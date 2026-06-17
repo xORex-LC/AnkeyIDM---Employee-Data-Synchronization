@@ -15,6 +15,7 @@ from connector.common.observability import (
     ObservabilityEvent,
 )
 from connector.infra.logging.event_sink import StructlogObservabilityEventSink
+from connector.infra.logging.lifecycle import RuntimeLifecycleEventAdapter
 
 pytestmark = pytest.mark.unit
 
@@ -117,3 +118,26 @@ def test_event_sink_rejects_dotted_event_fields() -> None:
                 fields={"event.action": "bad-event"},
             )
         )
+
+
+def test_runtime_lifecycle_taxonomy_degraded_warning_is_explicit() -> None:
+    logger = _Logger()
+    adapter = RuntimeLifecycleEventAdapter(
+        sink=StructlogObservabilityEventSink(logger=logger)
+    )
+
+    adapter.taxonomy_load_degraded(reason="broken\n taxonomy")
+
+    assert logger.calls == [
+        (
+            "warning",
+            "Observability taxonomy load degraded",
+            {
+                "action": "taxonomy-load-degraded",
+                "scope": "observability",
+                "reason": "broken taxonomy",
+                "outcome": "failure",
+                "kind": "event",
+            },
+        )
+    ]

@@ -54,6 +54,7 @@ from connector.infra.logging.runtime import (
     bind_observability_context,
     clear_observability_context,
 )
+from connector.infra.logging.taxonomy import TaxonomyLoadError
 from connector.infra.observability.ledger import (
     RunLedgerRowCounters,
     build_run_ledger_record,
@@ -216,7 +217,7 @@ def _initialize_observability_session(
     container.pipeline.pipeline_lifecycle_events.override(
         container.observability.pipeline_lifecycle_events
     )
-    return RuntimeObservabilitySession(
+    session = RuntimeObservabilitySession(
         component=component,
         layout=layout,
         runtime=runtime,
@@ -224,6 +225,16 @@ def _initialize_observability_session(
         runtime_lifecycle=runtime_lifecycle,
         log_file_path=runtime.current_log_file_path(),
     )
+    _emit_taxonomy_load_degraded(session=session)
+    return session
+
+
+def _emit_taxonomy_load_degraded(*, session: RuntimeObservabilitySession) -> None:
+    """Эмитить one-shot warning, если logging runtime поднят в degraded taxonomy mode."""
+    reason = session.runtime.taxonomy_degraded_reason
+    if reason is None:
+        return
+    session.runtime_lifecycle.taxonomy_load_degraded(reason=reason)
 
 
 def _emit_run_completed(
@@ -578,6 +589,28 @@ def run_with_report(
             source="runtime_validation_error",
             secondary=False,
         )
+    except TaxonomyLoadError as exc:
+        logger.error(
+            "Observability taxonomy load error",
+            scope="observability",
+            error=str(exc),
+            error_type=exc.__class__.__name__,
+        )
+        typer.echo(f"ERROR: observability taxonomy load failed: {exc}", err=True)
+        exit_result = build_runtime_error_result(
+            catalog=ctx.catalog,
+            command_name=command_name,
+            message=str(exc),
+            details={"runtime_error": exc.__class__.__name__},
+        )
+        apply_result_to_report(
+            report_sink,
+            report_context,
+            exit_result,
+            command_name=command_name,
+            source="taxonomy_load_error",
+            secondary=False,
+        )
     except Exception as exc:
         logger.error(
             "Command failed",
@@ -876,6 +909,20 @@ def run_without_report(
                 "runtime_exit_code": exc.exit_code,
                 "runtime_error": "RuntimeErrorWithCode",
             },
+        )
+    except TaxonomyLoadError as exc:
+        logger.error(
+            "Observability taxonomy load error",
+            scope="observability",
+            error=str(exc),
+            error_type=exc.__class__.__name__,
+        )
+        typer.echo(f"ERROR: observability taxonomy load failed: {exc}", err=True)
+        exit_result = build_runtime_error_result(
+            catalog=ctx.catalog,
+            command_name=command_name,
+            message=str(exc),
+            details={"runtime_error": exc.__class__.__name__},
         )
     except Exception as exc:
         logger.error(

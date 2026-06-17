@@ -33,6 +33,7 @@ from connector.domain.diagnostics.command_result import CommandResult
 from connector.domain.diagnostics.policies import SystemErrorCode
 from connector.domain.dsl.issues import DslLoadError
 from connector.domain.secrets.errors import SecretKeyConfigError
+from connector.infra.logging.taxonomy import TaxonomyLoadError
 
 
 @dataclass
@@ -120,6 +121,26 @@ class _NoopLogger:
         return None
 
 
+@dataclass
+class _RuntimeLifecycleSpy:
+    taxonomy_degraded_reasons: list[str]
+
+    def run_started(self, *, command_name: str) -> None:
+        return None
+
+    def run_completed(
+        self,
+        *,
+        command_name: str,
+        success: bool,
+        duration_ns: int | None = None,
+    ) -> None:
+        return None
+
+    def taxonomy_load_degraded(self, *, reason: str) -> None:
+        self.taxonomy_degraded_reasons.append(reason)
+
+
 def _patch_fake_observability(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Подменить observability session без реального DI/runtime wiring."""
     session = _FakeObservabilitySession(
@@ -192,6 +213,30 @@ def _result_with(code: SystemErrorCode) -> CommandResult:
     result = CommandResult()
     result.add_code(code)
     return result
+
+
+def test_taxonomy_load_degraded_warning_is_emitted_once_per_session() -> None:
+    lifecycle = _RuntimeLifecycleSpy(taxonomy_degraded_reasons=[])
+    session = SimpleNamespace(
+        runtime=SimpleNamespace(taxonomy_degraded_reason="broken taxonomy"),
+        runtime_lifecycle=lifecycle,
+    )
+
+    runtime_module.runtime_orchestrator._emit_taxonomy_load_degraded(session=session)
+
+    assert lifecycle.taxonomy_degraded_reasons == ["broken taxonomy"]
+
+
+def test_taxonomy_load_degraded_warning_is_not_emitted_for_valid_registry() -> None:
+    lifecycle = _RuntimeLifecycleSpy(taxonomy_degraded_reasons=[])
+    session = SimpleNamespace(
+        runtime=SimpleNamespace(taxonomy_degraded_reason=None),
+        runtime_lifecycle=lifecycle,
+    )
+
+    runtime_module.runtime_orchestrator._emit_taxonomy_load_degraded(session=session)
+
+    assert lifecycle.taxonomy_degraded_reasons == []
 
 
 def test_run_with_report_restores_streams_when_shutdown_fails(
@@ -471,6 +516,36 @@ def test_run_without_report_bootstrap_logger_uses_stderr_before_observability_in
     assert "container unavailable" not in captured.out
     assert '"event": "Command failed"' in captured.err
     assert '"error": "container unavailable"' in captured.err
+
+
+def test_run_without_report_surfaces_taxonomy_bootstrap_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fake = _FakeContainer()
+    monkeypatch.setattr(runtime_module, "AppContainer", lambda: fake)
+    monkeypatch.setattr(
+        runtime_module.runtime_orchestrator,
+        "_initialize_observability_session",
+        lambda **_: (_ for _ in ()).throw(TaxonomyLoadError("broken taxonomy")),
+    )
+
+    with pytest.raises(typer.Exit) as exc_info:
+        runtime_module.run_without_report(
+            ctx=_ctx(tmp_path),
+            command_name="mapping",
+            opts=SimpleNamespace(),
+            handler=lambda _ctx, _opts, _report: None,
+            requirements=Requirements(),
+        )
+
+    captured = capsys.readouterr()
+    assert exc_info.value.exit_code == 2
+    assert captured.out == ""
+    assert "ERROR: observability taxonomy load failed: broken taxonomy" in captured.err
+    assert '"event": "Observability taxonomy load error"' in captured.err
+    assert '"error": "broken taxonomy"' in captured.err
 
 
 def test_run_without_report_sets_internal_error_on_teardown_only_failure(

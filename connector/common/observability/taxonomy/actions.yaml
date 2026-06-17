@@ -312,6 +312,19 @@ actions:
   - trace.id
   emission_point: invalid CLI/runtime requirements
   description: invalid CLI/runtime requirements
+- name: taxonomy-load-degraded
+  zone: 01-runtime-cli-lifecycle
+  bucket: diagnostic
+  default_level: warning
+  outcome: always
+  kind: event
+  status: planned
+  required_fields:
+  - event.action
+  - event.outcome
+  - trace.id
+  emission_point: logging runtime bootstrapped with degraded observability taxonomy registry
+  description: logging runtime bootstrapped with degraded observability taxonomy registry
 - name: api-check-completed
   zone: 02-command-delivery-lifecycle
   bucket: milestone

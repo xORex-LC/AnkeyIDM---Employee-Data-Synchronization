@@ -39,6 +39,8 @@ class RuntimeLifecycleEvents(Protocol):
         duration_ns: int | None = None,
     ) -> None: ...
 
+    def taxonomy_load_degraded(self, *, reason: str) -> None: ...
+
 
 class PipelineLifecycleEvents(Protocol):
     """Узкий контракт наблюдаемости для lifecycle стадий pipeline."""
