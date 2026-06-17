@@ -1,0 +1,142 @@
+[
+  {
+    "name": "@timestamp",
+    "type": "date"
+  },
+  {
+    "name": "ecs.version",
+    "type": "keyword"
+  },
+  {
+    "name": "error.code",
+    "type": "keyword"
+  },
+  {
+    "name": "error.message",
+    "type": "text"
+  },
+  {
+    "name": "error.stack_trace",
+    "type": "text"
+  },
+  {
+    "name": "error.type",
+    "type": "keyword"
+  },
+  {
+    "name": "event.action",
+    "type": "keyword"
+  },
+  {
+    "name": "event.dataset",
+    "type": "keyword"
+  },
+  {
+    "name": "event.duration",
+    "type": "long"
+  },
+  {
+    "name": "event.end",
+    "type": "date"
+  },
+  {
+    "name": "event.kind",
+    "type": "keyword"
+  },
+  {
+    "name": "event.outcome",
+    "type": "keyword"
+  },
+  {
+    "name": "event.start",
+    "type": "date"
+  },
+  {
+    "name": "file.path",
+    "type": "keyword"
+  },
+  {
+    "name": "host.name",
+    "type": "keyword"
+  },
+  {
+    "name": "http.request.body.bytes",
+    "type": "long"
+  },
+  {
+    "name": "http.request.method",
+    "type": "keyword"
+  },
+  {
+    "name": "http.response.body.bytes",
+    "type": "long"
+  },
+  {
+    "name": "http.response.status_code",
+    "type": "long"
+  },
+  {
+    "name": "log.level",
+    "type": "keyword"
+  },
+  {
+    "name": "log.logger",
+    "type": "keyword"
+  },
+  {
+    "name": "log.origin.file.line",
+    "type": "long"
+  },
+  {
+    "name": "log.origin.file.name",
+    "type": "keyword"
+  },
+  {
+    "name": "log.origin.function",
+    "type": "keyword"
+  },
+  {
+    "name": "message",
+    "type": "text"
+  },
+  {
+    "name": "process.name",
+    "type": "keyword"
+  },
+  {
+    "name": "process.pid",
+    "type": "long"
+  },
+  {
+    "name": "service.environment",
+    "type": "keyword"
+  },
+  {
+    "name": "service.name",
+    "type": "keyword"
+  },
+  {
+    "name": "service.type",
+    "type": "keyword"
+  },
+  {
+    "name": "service.version",
+    "type": "keyword"
+  },
+  {
+    "name": "span.id",
+    "type": "keyword"
+  },
+  {
+    "name": "trace.id",
+    "type": "keyword"
+  },
+  {
+    "name": "url.full",
+    "type": "keyword"
+  },
+  {
+    "name": "url.path",
+    "type": "keyword"
+  }
+]

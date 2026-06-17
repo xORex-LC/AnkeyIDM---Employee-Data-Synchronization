@@ -158,6 +158,20 @@ fields:
   tier: core
   sensitive: false
   description: Wider execution correlation id
+- key: labels.schema_version
+  aliases: [schema_version]
+  ecs_type: keyword
+  owner: labels
+  tier: core
+  sensitive: false
+  description: Project log envelope schema version
+- key: labels.git_rev
+  aliases: [git_rev]
+  ecs_type: keyword
+  owner: labels
+  tier: extended
+  sensitive: false
+  description: Application git revision when available
 - key: log.level
   ecs_type: keyword
   owner: ecs
