@@ -252,22 +252,59 @@ unit/contract tests.
 
 ### Phase 2: Taxonomy registry and guards
 
+> Детальный дизайн, edge-cases и риск-реестр —
+> [phase-2-design.md](../../notes/ecs-logging/phase-2-design.md). Ниже — принятые решения.
+
+Принятые решения:
+
+- **Реестр и жизненный цикл.** Pydantic loader/registry в `connector/infra/logging/taxonomy.py`
+  (`frozen=True, extra="forbid"`), собирается **один раз на bootstrap** внутри
+  `build_structured_logging_runtime`, immutable; инъектируется замыканием в `ecs_transform` и через DI
+  в event sink. Это **конкретная infra-модель, без Protocol в `common`**: оба потребителя
+  (`ecs_transform`, `StructlogObservabilityEventSink`) — infra, порт был бы преждевременной
+  абстракцией. `make_ecs_transform(registry)` — основной runtime API; прото-функции
+  `field_aliases()`/`canonical_field_keys()` остаются только как compat/test-хелперы поверх default
+  registry (не второй источник поведения). Прото-загрузчик `_load_field_registry` ретайрится.
+- **Модель отказа.** Fail-safe по умолчанию: невалидный/отсутствующий реестр → `ecs_transform`
+  деградирует до `message`+`labels` (валидный ECS-конверт), команда не падает, один WARNING
+  (`taxonomy-load-degraded`); причина — свойство `StructuredLoggingRuntime.taxonomy_degraded_reason`
+  (return type `build_structured_logging_runtime` не меняем). Fail-fast при `observability.diagnostics.strict` (параметр
+  `strict_taxonomy`). Одна полная валидация на процесс, не per-record.
+- **`ecs_transform` (resolution).** Порядок per-key: structlog meta/control → alias → canonical
+  passthrough → `labels.*` catch-all; ни один unknown root не утекает. `schema_version`/`git_rev`
+  получают явные алиасы в `labels.*` (D7.2).
+- **Defaults (B).** `level`/`kind` резолвятся в sink из реестра (precedence: явный override → registry
+  → fallback `INFO`/`EVENT`), адаптеры их не хардкодят. `outcome` — рантайм-факт адаптера;
+  `outcome`-policy (`none`/`always`/`on_completion`) — валидация, а не дефолт-значение.
+- **`sensitive`.** В Phase 2 только валидируется и экспонируется реестром (`sensitive_keys`/
+  `sensitive_aliases`); рантайм/redaction-enforcement — за рамками фазы.
+- **Гарды/тесты.** Behavior-preservation golden (`ecs_transform` Phase 2 == Phase 1); membership
+  (adapter actions ∈ `actions.yaml`, runtime lenient); callsite-map ⊆ actions (мягкий); вендоренный
+  ECS-срез для `owner=ecs` ключей.
+
 Код:
 
 | Файл | Изменение |
 |---|---|
-| `connector/common/observability/taxonomy/` | Оставить YAML source of truth |
-| `connector/infra/logging/taxonomy.py` или будущий package module | Pydantic loader/registry для YAML taxonomy |
-| `tests/unit/.../test_ecs_taxonomy.py` | Contract tests YAML registry, action names, field keys, duplicates |
+| `connector/infra/logging/taxonomy.py` | Pydantic loader/registry (новый) |
+| `connector/infra/logging/ecs.py` | `make_ecs_transform(registry)`; ретайр `_load_field_registry` |
+| `connector/infra/logging/runtime.py` | build реестра + `strict_taxonomy`; degraded — свойство `StructuredLoggingRuntime.taxonomy_degraded_reason` (return type build не меняем) |
+| `connector/infra/logging/event_sink.py` | registry-backed `level`/`kind` (B) |
+| `connector/infra/logging/lifecycle.py` | убрать хардкод `level`/`kind` |
+| `connector/common/observability/taxonomy/` | YAML SoT; +`labels.schema_version`/`labels.git_rev` (D7.2); action `taxonomy-load-degraded` |
+| `tests/...` | `test_ecs_taxonomy.py` (инварианты + D/F + ECS-срез), golden-модуль, autouse root-logger fixture |
 
 Минимальные инварианты Phase 2:
 
-- `actions.yaml` валидируется как registry.
+- `actions.yaml`/`fields/*.yaml` валидируются как registry; action names — уникальный kebab-case;
+  field keys — уникальные dotted paths.
 - Все `required_fields` action-ов существуют в field registry.
 - Все field keys имеют разрешённый root (`ecs`, `event`, `log`, `error`, `trace`, `service`,
   `span`, `host`, `process`, `file`, `http`, `url`, `nexus`, `labels`, `tags`, `@timestamp`).
-- Все alias-ы глобально уникальны и резолвятся в один canonical field key.
-- Sensitive fields не допускают raw-value logging policy.
+- Все alias-ы глобально уникальны, резолвятся в один canonical key и не пересекаются с
+  meta/control-ключами и structural roots.
+- Каждое field-entry явно объявляет `sensitive`; registry строит `sensitive_keys`/`sensitive_aliases`.
+- `ecs_version` (YAML) == `ECS_VERSION` (runtime).
 
 ### Phase 3: Event contract and zone adapters
 
@@ -343,6 +380,9 @@ Operational smoke:
 
 Отдельно от renderer boundary остаётся инфраструктурное решение по Elasticsearch templates:
 
+- taxonomy-флаг `sensitive` (см. `fields/*.yaml`) — основной вход для ES-стратегии: sensitive-поля
+  (включая fingerprint/hash как linkable identifiers) требуют отдельного решения по индексации
+  (not-aggregatable / field-level security / ограниченный индекс), даже будучи в safe form;
 - reserved ECS-поля должны опираться на официальный ECS component template, а не на вручную
   сопровождаемый кастомный mapping;
 - project-specific mapping должен жить только в отдельном template для `nexus.*` и, при
@@ -378,6 +418,8 @@ fail-safe: ошибка загрузки taxonomy не должна валить
 - [Event Action Dictionary](../../dev/layers/observability/ecs-logging-taxonomy/event-action-dictionary.md)
 - [Field Catalog](../../dev/layers/observability/ecs-logging-taxonomy/field-catalog.md)
 - [Call-Site Map](../../dev/layers/observability/ecs-logging-taxonomy/callsite-map.md)
+- [ECS Logging notes index](../../notes/ecs-logging/README.md) — навигация: журнал решений, открытые вопросы, планы фаз
+- [Phase 2 design](../../notes/ecs-logging/phase-2-design.md) — текущее проектирование (taxonomy registry + guards)
 - `connector/common/observability/taxonomy/actions.yaml`
 - `connector/common/observability/taxonomy/fields/*.yaml`
 - `connector/infra/logging/runtime.py`
@@ -391,3 +433,4 @@ fail-safe: ошибка загрузки taxonomy не должна валить
 |---|---|
 | 2026-06-09 | Решение предложено: ECS JSON shape через финальный structlog processor |
 | 2026-06-14 | Решение принято: taxonomy вынесена из ADR в YAML/dev-docs; `ecs_transform` остаётся финальным JSON processor; generic event sink внутренний, наружу - zone-specific adapters |
+| 2026-06-15 | Phase 2 дизайн зафиксирован: registry (infra-модель `taxonomy.py`, без Protocol) + fail-safe/strict жизненный цикл + `make_ecs_transform(registry)` + resolution spec (D7.2) + registry-backed level/kind (B) + golden behavior-preservation + membership/callsite guards + sensitive только validate/expose. Детали — `notes/ecs-logging/phase-2-design.md` |

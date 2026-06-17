@@ -11,7 +11,13 @@
 #   ecs_type     ES mapping type: keyword | long | float | boolean | date | text | ip | object
 #   owner        ecs | nexus | labels
 #   tier         core | extended | trace
-#   sensitive    true → raw запрещён (только fingerprint/count); кормит redaction
+#   sensitive    handling-policy флаг, ортогонален tier (НЕ runtime-значение и не ECS-поле). true →
+#                поле может нести секрет/PII/business identity/internal locator внешней системы или
+#                стабильный linkable-производный (в т.ч. fingerprint/hash) → только safe form
+#                (fingerprint/hash/count/status/ref), raw запрещён. Вход для validator/registry/
+#                renderer/redaction/security-audit/ES-mapping, а не «список ключей redaction».
+#                false → штатно индексируемая операционная/структурная/диагностическая метрика
+#                (всё равно проходит общую redaction-политику)
 #   aliases      short runtime field names accepted by ObservabilityEvent.fields / structlog kwargs
 #   source       откуда берётся значение в коде (опц.)
 #   description  краткое назначение
