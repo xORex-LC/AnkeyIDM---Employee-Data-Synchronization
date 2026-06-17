@@ -32,7 +32,6 @@ from connector.config.models import (
     LoggingSinksConfig,
 )
 from connector.delivery.cli.stream_capture import StdStreamToLogger
-from connector.infra.logging.ecs import ecs_transform
 from connector.infra.logging.event_sink import StructlogObservabilityEventSink
 from connector.infra.logging.redaction import LogRedactionEngine
 from connector.infra.logging.runtime import (
@@ -87,6 +86,17 @@ def _formatter_processors(runtime) -> list[object]:
     formatter = handler.formatter
     assert isinstance(formatter, ProcessorFormatter)
     return list(formatter.processors)
+
+
+def _is_ecs_transform_processor(processor: object) -> bool:
+    return (
+        getattr(processor, "__module__", "") == "connector.infra.logging.ecs"
+        and getattr(processor, "__name__", "") == "ecs_transform"
+    )
+
+
+def _ecs_transform_processors(processors: list[object]) -> list[object]:
+    return [processor for processor in processors if _is_ecs_transform_processor(processor)]
 
 
 class _TtyStringIO(io.StringIO):
@@ -161,11 +171,13 @@ def test_json_formatter_processor_order_places_ecs_after_processor_cleanup(
     )
 
     processors = _formatter_processors(runtime)
+    ecs_processors = _ecs_transform_processors(processors)
 
+    assert len(ecs_processors) == 1
     assert processors.index(
         ProcessorFormatter.remove_processors_meta
-    ) < processors.index(ecs_transform)
-    assert processors[-2] is ecs_transform
+    ) < processors.index(ecs_processors[0])
+    assert processors[-2] is ecs_processors[0]
     runtime.close()
 
 
@@ -186,7 +198,7 @@ def test_text_formatter_does_not_enable_ecs_transform(tmp_path: Path) -> None:
         root_logger_name="",
     )
 
-    assert ecs_transform not in _formatter_processors(runtime)
+    assert _ecs_transform_processors(_formatter_processors(runtime)) == []
     runtime.close()
 
 

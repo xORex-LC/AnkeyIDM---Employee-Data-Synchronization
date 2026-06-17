@@ -39,8 +39,9 @@ from structlog.stdlib import ProcessorFormatter
 from connector.common.interactive_io import InteractiveIoGate
 from connector.common.observability import ObservabilityLayout, ServiceComponent
 from connector.config.models import LoggingConfig, LogLevelName
-from .ecs import ecs_transform
+from .ecs import EcsTransform, make_ecs_transform
 from .redaction import LogRedactionEngine
+from .taxonomy import load_observability_taxonomy
 
 if TYPE_CHECKING:
     from connector.common.observability import ComponentIdentity
@@ -438,6 +439,7 @@ def build_structured_logging_runtime(
 ) -> StructuredLoggingRuntime:
     """Сконфигурировать structlog runtime для одного service-component."""
     runtime_meta = LoggingRuntimeMeta(app_version=app_version, git_rev=git_rev)
+    ecs_processor = _build_ecs_processor(config)
     root_logger = logging.getLogger(root_logger_name)
     root_logger.handlers.clear()
     root_logger.setLevel(logging.NOTSET)
@@ -453,6 +455,7 @@ def build_structured_logging_runtime(
         clock=clock,
         runtime_meta=runtime_meta,
         interactive_io_gate=interactive_io_gate,
+        ecs_processor=ecs_processor,
     )
     structlog.configure(
         processors=_build_structlog_processors(runtime_meta),
@@ -504,7 +507,7 @@ def _build_formatter_processors(
     *,
     redaction_engine: LogRedactionEngine,
     renderer: Any,
-    ecs_enabled: bool,
+    ecs_processor: EcsTransform | None,
 ) -> list[Any]:
     """Собрать общий финальный processor-chain для structlog и foreign логов."""
     processors: list[Any] = [
@@ -512,8 +515,8 @@ def _build_formatter_processors(
         redaction_engine.processor,
         ProcessorFormatter.remove_processors_meta,
     ]
-    if ecs_enabled:
-        processors.append(ecs_transform)
+    if ecs_processor is not None:
+        processors.append(ecs_processor)
     processors.append(renderer)
     return processors
 
@@ -523,14 +526,14 @@ def _build_formatter(
     redaction_engine: LogRedactionEngine,
     renderer: Any,
     runtime_meta: LoggingRuntimeMeta,
-    ecs_enabled: bool,
+    ecs_processor: EcsTransform | None,
 ) -> ProcessorFormatter:
     return ProcessorFormatter(
         foreign_pre_chain=_build_foreign_pre_chain(runtime_meta),
         processors=_build_formatter_processors(
             redaction_engine=redaction_engine,
             renderer=renderer,
-            ecs_enabled=ecs_enabled,
+            ecs_processor=ecs_processor,
         ),
     )
 
@@ -546,54 +549,31 @@ def _build_handler_stack(
     clock: Callable[[], datetime] | None,
     runtime_meta: LoggingRuntimeMeta,
     interactive_io_gate: InteractiveIoGate | None,
+    ecs_processor: EcsTransform | None,
 ) -> StructlogHandlerStack:
     console_handler: logging.Handler | None = None
     file_handler: DailySizeRotatingFileHandler | None = None
 
     if config.sinks.console.enabled:
-        console_stream = (
-            stderr_stream
-            if stderr_stream is not None
-            else _resolve_console_stream(config.sinks.console.stream)
+        console_handler = _build_console_handler(
+            config=config,
+            redaction_engine=redaction_engine,
+            stderr_stream=stderr_stream,
+            runtime_meta=runtime_meta,
+            interactive_io_gate=interactive_io_gate,
+            ecs_processor=ecs_processor,
         )
-        console_handler = logging.StreamHandler(console_stream)
-        console_handler.setLevel(logging.NOTSET)
-        console_handler.setFormatter(
-            _build_formatter(
-                redaction_engine=redaction_engine,
-                renderer=JSONRenderer(ensure_ascii=False)
-                if config.sinks.console.format == "json"
-                else _HumanConsoleRenderer(
-                    use_color=bool(getattr(console_stream, "isatty", lambda: False)())
-                ),
-                runtime_meta=runtime_meta,
-                ecs_enabled=config.sinks.console.format == "json",
-            )
-        )
-        if interactive_io_gate is not None:
-            console_handler.addFilter(
-                _InteractiveConsoleSuppressFilter(interactive_io_gate)
-            )
         root_logger.addHandler(console_handler)
 
     if config.sinks.file.enabled:
-        file_handler = DailySizeRotatingFileHandler(
+        file_handler = _build_file_handler(
+            config=config,
             layout=layout,
+            redaction_engine=redaction_engine,
             component=component,
-            max_bytes=config.sinks.file.max_bytes,
-            backup_count=config.sinks.file.retention_backups,
             clock=clock,
-        )
-        file_handler.setLevel(logging.NOTSET)
-        file_handler.setFormatter(
-            _build_formatter(
-                redaction_engine=redaction_engine,
-                renderer=JSONRenderer(ensure_ascii=False)
-                if config.sinks.file.format == "json"
-                else _JsonTextRenderer(),
-                runtime_meta=runtime_meta,
-                ecs_enabled=config.sinks.file.format == "json",
-            )
+            runtime_meta=runtime_meta,
+            ecs_processor=ecs_processor,
         )
         root_logger.addHandler(file_handler)
 
@@ -601,6 +581,99 @@ def _build_handler_stack(
         console_handler=console_handler,
         file_handler=file_handler,
         root_logger=root_logger,
+    )
+
+
+def _build_console_handler(
+    *,
+    config: LoggingConfig,
+    redaction_engine: LogRedactionEngine,
+    stderr_stream: TextIO | None,
+    runtime_meta: LoggingRuntimeMeta,
+    interactive_io_gate: InteractiveIoGate | None,
+    ecs_processor: EcsTransform | None,
+) -> logging.Handler:
+    """Собрать console handler с renderer-ом и interactive suppression.
+
+    Handler пишет в уже выбранный stderr override или в stream из конфигурации.
+    ECS processor подключается только для JSON-формата, text renderer остаётся
+    независимым от ECS mapping.
+    """
+    console_stream = (
+        stderr_stream
+        if stderr_stream is not None
+        else _resolve_console_stream(config.sinks.console.stream)
+    )
+    handler = logging.StreamHandler(console_stream)
+    handler.setLevel(logging.NOTSET)
+    handler.setFormatter(
+        _build_formatter(
+            redaction_engine=redaction_engine,
+            renderer=JSONRenderer(ensure_ascii=False)
+            if config.sinks.console.format == "json"
+            else _HumanConsoleRenderer(
+                use_color=bool(getattr(console_stream, "isatty", lambda: False)())
+            ),
+            runtime_meta=runtime_meta,
+            ecs_processor=ecs_processor
+            if config.sinks.console.format == "json"
+            else None,
+        )
+    )
+    if interactive_io_gate is not None:
+        handler.addFilter(_InteractiveConsoleSuppressFilter(interactive_io_gate))
+    return handler
+
+
+def _build_file_handler(
+    *,
+    config: LoggingConfig,
+    layout: ObservabilityLayout,
+    redaction_engine: LogRedactionEngine,
+    component: ServiceComponent,
+    clock: Callable[[], datetime] | None,
+    runtime_meta: LoggingRuntimeMeta,
+    ecs_processor: EcsTransform | None,
+) -> DailySizeRotatingFileHandler:
+    """Собрать file handler с daily+size rotation и sink-specific renderer.
+
+    Handler всегда использует `ObservabilityLayout` для имени файла. ECS processor
+    подключается только для JSON-файлового sink-а; text-файл сохраняет прежний
+    key-value renderer.
+    """
+    handler = DailySizeRotatingFileHandler(
+        layout=layout,
+        component=component,
+        max_bytes=config.sinks.file.max_bytes,
+        backup_count=config.sinks.file.retention_backups,
+        clock=clock,
+    )
+    handler.setLevel(logging.NOTSET)
+    handler.setFormatter(
+        _build_formatter(
+            redaction_engine=redaction_engine,
+            renderer=JSONRenderer(ensure_ascii=False)
+            if config.sinks.file.format == "json"
+            else _JsonTextRenderer(),
+            runtime_meta=runtime_meta,
+            ecs_processor=ecs_processor if config.sinks.file.format == "json" else None,
+        )
+    )
+    return handler
+
+
+def _build_ecs_processor(config: LoggingConfig) -> EcsTransform | None:
+    if not _has_json_sink(config):
+        return None
+    return make_ecs_transform(load_observability_taxonomy())
+
+
+def _has_json_sink(config: LoggingConfig) -> bool:
+    return (
+        config.sinks.console.enabled
+        and config.sinks.console.format == "json"
+        or config.sinks.file.enabled
+        and config.sinks.file.format == "json"
     )
 
 

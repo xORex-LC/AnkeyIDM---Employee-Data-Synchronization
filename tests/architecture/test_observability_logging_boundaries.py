@@ -51,6 +51,7 @@ EXPECTED_STRUCTURAL_ROOTS = frozenset(
 ALLOWED_ECS_TRANSFORM_IMPORTS = {
     "connector/infra/logging/runtime.py",
 }
+ECS_TRANSFORM_APIS = frozenset({"ecs_transform", "make_ecs_transform"})
 KNOWN_USECASE_LOGGING_BACKEND_IMPORTS = frozenset(
     {
         "connector/usecases/management/vault/usecase.py: structlog",
@@ -129,11 +130,14 @@ def test_ecs_transform_is_imported_only_by_logging_runtime() -> None:
         ):
             continue
         for module, names in _import_froms(path):
-            if module == "connector.infra.logging.ecs" and "ecs_transform" in names:
-                violations.append(f"{rel}: from {module} import ecs_transform")
+            imported_apis = sorted(ECS_TRANSFORM_APIS.intersection(names))
+            if module == "connector.infra.logging.ecs" and imported_apis:
+                violations.append(
+                    f"{rel}: from {module} import {', '.join(imported_apis)}"
+                )
 
     assert violations == [], (
-        "ecs_transform must remain the final logging runtime processor:\n"
+        "ECS transform APIs must remain owned by logging runtime:\n"
         + "\n".join(violations)
     )
 

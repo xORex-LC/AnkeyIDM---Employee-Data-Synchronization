@@ -18,10 +18,12 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
-import yaml
+from .taxonomy import (
+    ObservabilityTaxonomyRegistry,
+    load_observability_taxonomy,
+)
 
 ECS_VERSION = "8.11"
 SERVICE_NAME = "nexus-etl"
@@ -50,24 +52,50 @@ STRUCTURAL_ROOTS = frozenset(
     }
 )
 
-_TAXONOMY_FIELDS_ROOT = (
-    Path(__file__).resolve().parents[2]
-    / "common"
-    / "observability"
-    / "taxonomy"
-    / "fields"
-)
 _LABEL_KEY_RE = re.compile(r"[^A-Za-z0-9_]+")
-_CANONICAL_FIELD_KEYS: frozenset[str] | None = None
-_FIELD_ALIASES: dict[str, str] | None = None
+EcsTransform = Callable[[Any, str, dict[str, Any]], dict[str, Any]]
+_DEFAULT_TAXONOMY_REGISTRY: ObservabilityTaxonomyRegistry | None = None
 
 
 def ecs_transform(
     _logger: Any, _method_name: str, event_dict: dict[str, Any]
 ) -> dict[str, Any]:
-    """Отрендерить один structlog event dictionary в проектный ECS JSON profile."""
-    aliases = field_aliases()
-    known_keys = canonical_field_keys()
+    """Отрендерить событие через registry по умолчанию.
+
+    Runtime-контур должен использовать `make_ecs_transform(registry)`, чтобы registry
+    загружался на bootstrap и не читался из processor hot-path. Эта функция остаётся
+    совместимым API для unit-тестов и переходного кода.
+    """
+    return make_ecs_transform(_default_taxonomy_registry())(
+        _logger, _method_name, event_dict
+    )
+
+
+def make_ecs_transform(registry: ObservabilityTaxonomyRegistry) -> EcsTransform:
+    """Создать ECS processor, привязанный к валидированному taxonomy registry."""
+    aliases = dict(registry.field_aliases)
+    known_keys = frozenset(registry.canonical_field_keys)
+
+    def ecs_transform(
+        _logger: Any, _method_name: str, event_dict: dict[str, Any]
+    ) -> dict[str, Any]:
+        return _render_ecs_event(
+            aliases=aliases,
+            known_keys=known_keys,
+            logger=_logger,
+            event_dict=event_dict,
+        )
+
+    return ecs_transform
+
+
+def _render_ecs_event(
+    *,
+    aliases: Mapping[str, str],
+    known_keys: frozenset[str],
+    logger: Any,
+    event_dict: dict[str, Any],
+) -> dict[str, Any]:
     rendered: dict[str, Any] = {
         "ecs.version": ECS_VERSION,
         "service.name": SERVICE_NAME,
@@ -110,24 +138,18 @@ def ecs_transform(
     _merge_error_fields(rendered, pending_error)
     rendered.setdefault("message", "")
     rendered.setdefault("log.level", "info")
-    rendered.setdefault("log.logger", _logger_name(_logger))
+    rendered.setdefault("log.logger", _logger_name(logger))
     return rendered
 
 
 def field_aliases() -> dict[str, str]:
-    """Вернуть маппинг коротких aliases, загруженный из field taxonomy."""
-    global _FIELD_ALIASES
-    if _FIELD_ALIASES is None:
-        _FIELD_ALIASES = _load_field_registry()[1]
-    return dict(_FIELD_ALIASES)
+    """Вернуть aliases из registry по умолчанию для совместимости старых тестов."""
+    return dict(_default_taxonomy_registry().field_aliases)
 
 
 def canonical_field_keys() -> frozenset[str]:
-    """Вернуть канонические dotted field keys, загруженные из field taxonomy."""
-    global _CANONICAL_FIELD_KEYS
-    if _CANONICAL_FIELD_KEYS is None:
-        _CANONICAL_FIELD_KEYS = _load_field_registry()[0]
-    return _CANONICAL_FIELD_KEYS
+    """Вернуть canonical field keys из registry по умолчанию."""
+    return _default_taxonomy_registry().canonical_field_keys
 
 
 def validate_field_name_for_event_contract(key: str) -> None:
@@ -142,23 +164,11 @@ def validate_field_name_for_event_contract(key: str) -> None:
         )
 
 
-def _load_field_registry() -> tuple[frozenset[str], dict[str, str]]:
-    canonical_keys: set[str] = set()
-    aliases: dict[str, str] = {}
-    for path in sorted(_TAXONOMY_FIELDS_ROOT.glob("*.yaml")):
-        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        for entry in raw.get("fields") or ():
-            canonical_key = str(entry["key"])
-            canonical_keys.add(canonical_key)
-            for alias in entry.get("aliases") or ():
-                alias_key = str(alias)
-                previous = aliases.setdefault(alias_key, canonical_key)
-                if previous != canonical_key:
-                    raise ValueError(
-                        f"Field alias '{alias_key}' maps to both '{previous}' and "
-                        f"'{canonical_key}'"
-                    )
-    return frozenset(canonical_keys), aliases
+def _default_taxonomy_registry() -> ObservabilityTaxonomyRegistry:
+    global _DEFAULT_TAXONOMY_REGISTRY
+    if _DEFAULT_TAXONOMY_REGISTRY is None:
+        _DEFAULT_TAXONOMY_REGISTRY = load_observability_taxonomy()
+    return _DEFAULT_TAXONOMY_REGISTRY
 
 
 def _merge_error_fields(
@@ -247,5 +257,6 @@ __all__ = [
     "canonical_field_keys",
     "ecs_transform",
     "field_aliases",
+    "make_ecs_transform",
     "validate_field_name_for_event_contract",
 ]

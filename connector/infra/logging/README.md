@@ -9,7 +9,7 @@
 | Файл | Назначение |
 |---|---|
 | `runtime.py` | `StructuredLoggingRuntime`, `DailySizeRotatingFileHandler`, `bind_observability_context()` — structlog runtime с stderr/file sinks, human console text renderer и stdlib bridge для foreign-логов |
-| `ecs.py` | `ecs_transform` и registry helpers — финальный JSON processor, который переводит короткие observability aliases в ECS/project dotted keys и отправляет неизвестные бизнес-поля в `labels.*` |
+| `ecs.py` | `make_ecs_transform(registry)` и compatibility `ecs_transform` — финальный JSON processor, который переводит короткие observability aliases в ECS/project dotted keys и отправляет неизвестные бизнес-поля в `labels.*` |
 | `taxonomy.py` | Pydantic loader/registry для machine-readable ECS logging taxonomy (`actions.yaml`, `fields/*.yaml`) |
 | `event_sink.py` | `StructlogObservabilityEventSink` — bridge `ObservabilityEvent` → native structlog logger без знания о финальном ECS JSON |
 | `lifecycle.py` | `RuntimeLifecycleEventAdapter`, `PipelineLifecycleEventAdapter` — семантические adapters для command/run и pipeline stage lifecycle |
@@ -22,10 +22,10 @@
 - Повторные запуски в тот же день дописывают в тот же файл; size-roll создаёт backup-файлы в том же component partition.
 - CLI call-sites пишут через native structlog `logger.info/warning/error(event, scope=..., **fields)`.
 - Новые lifecycle-события Phase 1 идут через `ObservabilityEvent` и узкие lifecycle adapters; call-site не формирует dotted ECS keys вручную.
-- JSON sinks проходят через единый `ecs_transform` после exception normalization, redaction и cleanup processor meta; text/human sinks ECS-transform не используют.
+- JSON sinks проходят через единый processor из `make_ecs_transform(registry)` после exception normalization, redaction и cleanup processor meta; text/human sinks ECS-transform не используют.
 - Phase 2 вводит валидированный taxonomy registry: YAML читается на bootstrap/в тестах, а не как
-  произвольная логика call-site-ов. До подключения `make_ecs_transform(registry)` текущий processor
-  ещё использует Phase 1 compatibility helpers.
+  произвольная логика call-site-ов. Bare `ecs_transform` оставлен только как compatibility/test
+  surface поверх default registry; runtime его напрямую не использует.
 - Во время интерактивных prompt-секций console mirror временно suppress-ится через `InteractiveIoGate`, но файловый sink продолжает писать события.
 - `console.format=text` рендерится как операторский однострочный формат вида `[INFO] vault core: Command started | run_id=... | ...`.
 - `file.format=text` остаётся плоским `key=value`-форматом, но поля разделяются через ` | ` для лучшей читаемости.
