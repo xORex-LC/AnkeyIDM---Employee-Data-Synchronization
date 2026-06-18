@@ -110,6 +110,24 @@ forbidden_modules = [
     "dependency_injector",
 ]
 
+[[tool.importlinter.contracts]]
+name = "observability shared kernel stays pure"
+type = "forbidden"
+source_modules = [
+    "connector.common.observability",
+]
+forbidden_modules = [
+    "connector.domain",
+    "connector.usecases",
+    "connector.infra",
+    "connector.delivery",
+    "structlog",
+    "logging",
+    "pydantic",
+    "yaml",
+    "dependency_injector",
+]
+
 # ── mypy ─────────────────────────────────────────────────────────────────────
 # Baseline-конфигурация с ratchet-стратегией: на старте НЕ включаем strict/
 # disallow_untyped_defs, чтобы не закрывать весь legacy одним махом. Гигиенические

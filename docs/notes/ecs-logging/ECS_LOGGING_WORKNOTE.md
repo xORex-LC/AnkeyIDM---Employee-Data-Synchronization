@@ -1,13 +1,13 @@
 # ECS Logging — Worknote (журнал решений и навигация)
 
-Статус: living hub · Последнее обновление: 2026-06-15
+Статус: living hub · Последнее обновление: 2026-06-18
 
 ## Цель документа
 
 Узкий хаб ECS-перехода логирования: **журнал решений + указатели**. Принятые архитектурные решения
 живут в [OBSERVABILITY-DEC-003](../../adr/observability/OBSERVABILITY-DEC-003-ecs-renderer-and-field-mapping.md),
-семантика — в dev-docs/taxonomy YAML, проектирование текущей фазы — в
-[phase-2-design.md](./phase-2-design.md), замороженные планы прошлых фаз — в [archive/](./archive/).
+семантика — в dev-docs/taxonomy YAML, проектирование завершённой Phase 2 — в
+[phase-2-design.md](./phase-2-design.md), замороженные планы фаз — в [archive/](./archive/).
 Здесь намеренно **нет копии** контракта/границ/инвариантов — только то, что ещё не принято, и история.
 
 Навигация по папке — [README.md](./README.md).
@@ -28,8 +28,9 @@
 
 ## Открытые вопросы
 
-Открытые решения и триаж тем перенесены в [phase-2-design.md](./phase-2-design.md) (форки A–F + темы
-2/3/6/8/9/11/12/13). Здесь не дублируются.
+Открытых решений по Phase 2 нет: дизайн закрыт, план реализации заморожен в
+[archive/phase-2-plan.md](./archive/phase-2-plan.md). Новые обсуждения Phase 3 заводятся отдельным
+design/worknote-документом, чтобы не смешивать историю фаз.
 
 ---
 
@@ -56,14 +57,16 @@
 | 2026-06-15 | Fork B — registry-backed defaults | Принято B1 в Phase 2: `level`/`kind` резолвятся в sink из реестра (precedence явный override → registry → fallback), адаптеры перестают хардкодить; `outcome` остаётся рантайм-фактом адаптера (policy `actions.yaml` → валидация golden-тестом п.4, не дефолт-значение); null-safe lookup (runtime lenient); реестр инъектируется в sink через DI. Behavior-preserving (hardcode == YAML). Детали — `phase-2-design.md` §Fork B |
 | 2026-06-15 | D/F + тест-инфра + риск-реестр | D.1 membership через AST-скан адаптеров (`action` ∈ `actions.yaml`), runtime lenient; F мягкий sync `callsite-map` ⊆ `actions.yaml`. п.10: вендоренный ECS-срез `ecs_fields_8_11.json` (`owner=ecs` ⊆ срез) + autouse root-logger snapshot. п.11: сведён сводный риск-реестр Phase 2. **Дизайн Phase 2 закрыт.** Детали — `phase-2-design.md` |
 | 2026-06-15 | Phase 2 design — уточнения + ADR | (1) ADR↔design синхронны по `sensitive` (Phase 2 = validate+expose; raw/safe runtime enforcement вне фазы); (2) registry — конкретная infra-модель `taxonomy.py`, **без Protocol в `common`** (оба потребителя infra); (3) `make_ecs_transform(registry)` — основной API, прото-функции `field_aliases()`/`canonical_field_keys()` → только compat/test поверх default registry; (4) degraded — свойство `StructuredLoggingRuntime.taxonomy_degraded_reason`, return type build не меняем. Golden — напрямую через `make_ecs_transform(real_registry)`, не через runtime. Дизайн Phase 2 кратко перенесён в ADR §Phase 2 |
+| 2026-06-18 | Phase 2 отгружена | Реализованы registry bootstrap, `make_ecs_transform(registry)`, degraded/strict режимы, registry-backed sink defaults, membership/callsite guards и shared-kernel purity contract. План отмечен выполненным и заморожен в `archive/phase-2-plan.md` |
 
 ---
 
 ## Связанные документы
 
 - [README.md](./README.md) — индекс папки заметок
-- [phase-2-design.md](./phase-2-design.md) — проектирование Phase 2 (открытые решения)
+- [phase-2-design.md](./phase-2-design.md) — закрытое проектирование Phase 2
 - [archive/phase-1-plan.md](./archive/phase-1-plan.md) — замороженный план Phase 1
+- [archive/phase-2-plan.md](./archive/phase-2-plan.md) — замороженный план Phase 2
 - [OBSERVABILITY-DEC-003](../../adr/observability/OBSERVABILITY-DEC-003-ecs-renderer-and-field-mapping.md) — решение
 - [OBSERVABILITY-PROBLEM-003](../../adr/observability/OBSERVABILITY-PROBLEM-003-non-ecs-log-shape.md) — проблема
 - [ecs-logging-conventions.md](../../dev/layers/observability/ecs-logging-conventions.md) — семантика полей/уровней/действий

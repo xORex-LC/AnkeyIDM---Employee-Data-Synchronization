@@ -74,6 +74,26 @@ KNOWN_USECASE_LOGGING_BACKEND_IMPORTS = frozenset(
         "connector/usecases/resolve_usecase.py: structlog",
     }
 )
+COMMON_OBSERVABILITY_FORBIDDEN_IMPORTS = frozenset(
+    {
+        "dependency_injector",
+        "logging",
+        "pydantic",
+        "structlog",
+        "yaml",
+    }
+)
+COMMON_OBSERVABILITY_FORBIDDEN_PREFIXES = (
+    "connector.delivery",
+    "connector.domain",
+    "connector.infra",
+    "connector.usecases",
+    "dependency_injector.",
+    "logging.",
+    "pydantic.",
+    "structlog.",
+    "yaml.",
+)
 
 
 def _python_files(root: Path) -> list[Path]:
@@ -168,13 +188,14 @@ def test_common_observability_contracts_do_not_import_infra_or_delivery() -> Non
         if "taxonomy" in path.parts:
             continue
         for module in _imports(path):
-            if module.startswith(("connector.infra", "connector.delivery")):
-                violations.append(f"{_rel(path)}: {module}")
-            if module in {"structlog", "logging"}:
+            if module in COMMON_OBSERVABILITY_FORBIDDEN_IMPORTS or module.startswith(
+                COMMON_OBSERVABILITY_FORBIDDEN_PREFIXES
+            ):
                 violations.append(f"{_rel(path)}: {module}")
 
     assert violations == [], (
-        "common observability contracts must stay runtime-neutral:\n"
+        "common observability contracts must stay dependency-light and "
+        "runtime-neutral:\n"
         + "\n".join(violations)
     )
 
@@ -217,6 +238,22 @@ def test_usecases_do_not_add_new_logging_backend_imports() -> None:
         "Remove fixed legacy entries from KNOWN_USECASE_LOGGING_BACKEND_IMPORTS "
         "when migrating them to observability ports.\nCurrent:\n"
         + "\n".join(sorted(current))
+    )
+
+
+def test_domain_does_not_import_logging_backend() -> None:
+    violations: list[str] = []
+    domain_root = CONNECTOR_ROOT / "domain"
+    for path in _python_files(domain_root):
+        rel = _rel(path)
+        for module in _imports(path):
+            if module == "structlog" or module.startswith("structlog."):
+                violations.append(f"{rel}: structlog")
+            if module.startswith("connector.infra.logging"):
+                violations.append(f"{rel}: {module}")
+
+    assert violations == [], (
+        "Domain must not import logging backend APIs:\n" + "\n".join(violations)
     )
 
 

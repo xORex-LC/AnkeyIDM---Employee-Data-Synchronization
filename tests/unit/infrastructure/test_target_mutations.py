@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from connector.domain.ports.target.execution import RequestSpec
 from connector.infra.target.providers.ankey_rest.mutations import regenerate_target_id
 
