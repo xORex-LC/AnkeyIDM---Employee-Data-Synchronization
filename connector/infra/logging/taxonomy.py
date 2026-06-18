@@ -28,13 +28,14 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from connector.common.observability.events import EventKind, LogLevel
 
+from .constants import ECS_VERSION
 
 TAXONOMY_ROOT = (
     Path(__file__).resolve().parents[2] / "common" / "observability" / "taxonomy"
 )
 
 ActionLevelName = Literal["trace", "debug", "info", "warning", "error", "critical"]
-ActionOutcomePolicy = Literal["none", "always", "on_completion", "success", "unknown"]
+ActionOutcomePolicy = Literal["none", "always", "on_completion"]
 ActionKindName = Literal["event", "metric", "state"]
 ActionStatus = Literal["planned"]
 ActionBucket = Literal["milestone", "decision", "diagnostic"]
@@ -177,7 +178,7 @@ def load_observability_taxonomy(
 
 
 def empty_observability_taxonomy(
-    *, reason: str | None = None, ecs_version: str = "8.11"
+    *, reason: str | None = None, ecs_version: str = ECS_VERSION
 ) -> ObservabilityTaxonomyRegistry:
     """Создать пустой registry для fail-safe degraded logging mode."""
     return ObservabilityTaxonomyRegistry(

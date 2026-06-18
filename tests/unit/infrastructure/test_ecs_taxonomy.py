@@ -10,7 +10,8 @@ from typing import Any
 import pytest
 import yaml
 
-from connector.infra.logging.ecs import ECS_VERSION, STRUCTURAL_ROOTS
+from connector.infra.logging.constants import ECS_VERSION
+from connector.infra.logging.ecs import STRUCTURAL_ROOTS
 from connector.infra.logging.taxonomy import load_observability_taxonomy
 
 pytestmark = pytest.mark.unit
@@ -22,6 +23,7 @@ ECS_FIELDS_SLICE = Path(__file__).with_name("ecs_fields_8_11.json")
 ZONES_ROOT = REPO_ROOT / "docs" / "dev" / "layers" / "observability" / "ecs-logging-taxonomy" / "zones"
 
 ACTION_NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+ACTION_OUTCOME_POLICIES = frozenset({"none", "always", "on_completion"})
 META_CONTROL_KEYS = frozenset(
     {"timestamp", "event", "level", "logger", "exception", "exc_info", "stack_info", "message"}
 )
@@ -59,6 +61,16 @@ def test_action_names_are_unique_kebab_case_values() -> None:
 
     assert len(names) == len(set(names))
     assert [name for name in names if not ACTION_NAME_RE.fullmatch(name)] == []
+
+
+def test_action_outcomes_are_policy_values_only() -> None:
+    violations = [
+        f"{action['name']}: {action['outcome']}"
+        for action in _actions_payload()["actions"]
+        if str(action["outcome"]) not in ACTION_OUTCOME_POLICIES
+    ]
+
+    assert violations == []
 
 
 def test_field_keys_are_unique_dotted_paths() -> None:

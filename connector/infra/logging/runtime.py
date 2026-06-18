@@ -447,7 +447,7 @@ def build_structured_logging_runtime(
 ) -> StructuredLoggingRuntime:
     """Сконфигурировать structlog runtime для одного service-component."""
     runtime_meta = LoggingRuntimeMeta(app_version=app_version, git_rev=git_rev)
-    ecs_registry = _load_ecs_registry(config, strict_taxonomy=strict_taxonomy)
+    ecs_registry = _load_ecs_registry(strict_taxonomy=strict_taxonomy)
     ecs_processor = _build_ecs_processor(config, registry=ecs_registry)
     root_logger = logging.getLogger(root_logger_name)
     root_logger.handlers.clear()
@@ -675,16 +675,13 @@ def _build_file_handler(
     return handler
 
 
-def _load_ecs_registry(
-    config: LoggingConfig, *, strict_taxonomy: bool
-) -> ObservabilityTaxonomyRegistry | None:
+def _load_ecs_registry(*, strict_taxonomy: bool) -> ObservabilityTaxonomyRegistry | None:
     """Загрузить taxonomy registry или вернуть degraded registry по policy.
 
     Registry нужен не только ECS renderer-у, но и event sink default-ам уровня
     и kind. Strict mode поднимает `TaxonomyLoadError` до настройки handler stack,
     чтобы bootstrap failure был видимым до первого log event.
     """
-    _ = config
     try:
         return load_observability_taxonomy()
     except TaxonomyLoadError as exc:

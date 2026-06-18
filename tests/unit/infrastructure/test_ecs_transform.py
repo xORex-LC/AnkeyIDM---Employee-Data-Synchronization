@@ -7,10 +7,10 @@ import pytest
 from connector.common.observability import ServiceComponent
 from connector.infra.logging.ecs import (
     STRUCTURAL_ROOTS,
-    ecs_transform,
-    field_aliases,
+    make_ecs_transform,
     validate_field_name_for_event_contract,
 )
+from connector.infra.logging.taxonomy import load_observability_taxonomy
 
 pytestmark = pytest.mark.unit
 
@@ -19,8 +19,12 @@ class _Logger:
     name = "tests.ecs"
 
 
+_taxonomy_registry = load_observability_taxonomy()
+_ecs_transform = make_ecs_transform(_taxonomy_registry)
+
+
 def test_ecs_transform_maps_core_aliases_to_canonical_fields() -> None:
-    payload = ecs_transform(
+    payload = _ecs_transform(
         _Logger(),
         "info",
         {
@@ -52,7 +56,7 @@ def test_ecs_transform_maps_core_aliases_to_canonical_fields() -> None:
 
 
 def test_ecs_transform_keeps_unknown_fields_under_labels() -> None:
-    payload = ecs_transform(
+    payload = _ecs_transform(
         _Logger(),
         "info",
         {
@@ -67,7 +71,7 @@ def test_ecs_transform_keeps_unknown_fields_under_labels() -> None:
 
 
 def test_ecs_transform_handles_foreign_log_record_without_action() -> None:
-    payload = ecs_transform(
+    payload = _ecs_transform(
         _Logger(),
         "error",
         {
@@ -82,7 +86,7 @@ def test_ecs_transform_handles_foreign_log_record_without_action() -> None:
 
 
 def test_ecs_transform_merges_exception_stack_with_manual_error_code() -> None:
-    payload = ecs_transform(
+    payload = _ecs_transform(
         _Logger(),
         "error",
         {
@@ -116,7 +120,7 @@ def test_event_contract_allows_short_domain_aliases() -> None:
 
 
 def test_taxonomy_aliases_cover_phase_one_lifecycle_fields() -> None:
-    aliases = field_aliases()
+    aliases = _taxonomy_registry.field_aliases
 
     assert aliases["action"] == "event.action"
     assert aliases["dataset"] == "event.dataset"
@@ -128,7 +132,7 @@ def test_taxonomy_aliases_cover_phase_one_lifecycle_fields() -> None:
 
 @pytest.mark.parametrize("component", list(ServiceComponent))
 def test_component_alias_maps_to_service_type(component: ServiceComponent) -> None:
-    payload = ecs_transform(
+    payload = _ecs_transform(
         _Logger(),
         "info",
         {

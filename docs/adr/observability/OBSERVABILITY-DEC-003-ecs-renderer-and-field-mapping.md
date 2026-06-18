@@ -262,20 +262,25 @@ unit/contract tests.
   `build_structured_logging_runtime`, immutable; инъектируется замыканием в `ecs_transform` и через DI
   в event sink. Это **конкретная infra-модель, без Protocol в `common`**: оба потребителя
   (`ecs_transform`, `StructlogObservabilityEventSink`) — infra, порт был бы преждевременной
-  абстракцией. `make_ecs_transform(registry)` — основной runtime API; прото-функции
-  `field_aliases()`/`canonical_field_keys()` остаются только как compat/test-хелперы поверх default
-  registry (не второй источник поведения). Прото-загрузчик `_load_field_registry` ретайрится.
+  абстракцией. `make_ecs_transform(registry)` — единственный processor API: `ecs.py` не держит
+  default lazy registry и не читает taxonomy YAML самостоятельно. Прото-загрузчик `_load_field_registry`
+  и compat helpers `field_aliases()`/`canonical_field_keys()` ретайрятся.
 - **Модель отказа.** Fail-safe по умолчанию: невалидный/отсутствующий реестр → `ecs_transform`
   деградирует до `message`+`labels` (валидный ECS-конверт), команда не падает, один WARNING
   (`taxonomy-load-degraded`); причина — свойство `StructuredLoggingRuntime.taxonomy_degraded_reason`
   (return type `build_structured_logging_runtime` не меняем). Fail-fast при `observability.diagnostics.strict` (параметр
-  `strict_taxonomy`). Одна полная валидация на процесс, не per-record.
+  `strict_taxonomy`). Одна полная валидация на процесс, не per-record. Реестр грузится даже для
+  text-only sink-конфигурации: он нужен event sink-у для `level`/`kind` defaults, а не только JSON
+  renderer-у.
 - **`ecs_transform` (resolution).** Порядок per-key: structlog meta/control → alias → canonical
   passthrough → `labels.*` catch-all; ни один unknown root не утекает. `schema_version`/`git_rev`
   получают явные алиасы в `labels.*` (D7.2).
 - **Defaults (B).** `level`/`kind` резолвятся в sink из реестра (precedence: явный override → registry
-  → fallback `INFO`/`EVENT`), адаптеры их не хардкодят. `outcome` — рантайм-факт адаптера;
-  `outcome`-policy (`none`/`always`/`on_completion`) — валидация, а не дефолт-значение.
+  → fallback `INFO`/`EVENT`), адаптеры их не хардкодят. Sink всегда эмитит `event.kind` для
+  `ObservabilityEvent` path; unknown action получает fallback `event`. `default_level: trace`
+  исполняется как `DEBUG`, потому что стандартный Python logging/structlog runtime не имеет
+  отдельного TRACE level. `outcome` — рантайм-факт адаптера; `outcome`-policy (`none`/`always`/
+  `on_completion`) — валидация, а не дефолт-значение.
 - **`sensitive`.** В Phase 2 только валидируется и экспонируется реестром (`sensitive_keys`/
   `sensitive_aliases`); рантайм/redaction-enforcement — за рамками фазы.
 - **Гарды/тесты.** Behavior-preservation golden (`ecs_transform` Phase 2 == Phase 1); membership
@@ -297,7 +302,8 @@ unit/contract tests.
 Минимальные инварианты Phase 2:
 
 - `actions.yaml`/`fields/*.yaml` валидируются как registry; action names — уникальный kebab-case;
-  field keys — уникальные dotted paths.
+  field keys — уникальные dotted paths; action `outcome` — только policy (`none`/`always`/
+  `on_completion`), не runtime value.
 - Все `required_fields` action-ов существуют в field registry.
 - Все field keys имеют разрешённый root (`ecs`, `event`, `log`, `error`, `trace`, `service`,
   `span`, `host`, `process`, `file`, `http`, `url`, `nexus`, `labels`, `tags`, `@timestamp`).
@@ -434,3 +440,5 @@ fail-safe: ошибка загрузки taxonomy не должна валить
 | 2026-06-09 | Решение предложено: ECS JSON shape через финальный structlog processor |
 | 2026-06-14 | Решение принято: taxonomy вынесена из ADR в YAML/dev-docs; `ecs_transform` остаётся финальным JSON processor; generic event sink внутренний, наружу - zone-specific adapters |
 | 2026-06-15 | Phase 2 дизайн зафиксирован: registry (infra-модель `taxonomy.py`, без Protocol) + fail-safe/strict жизненный цикл + `make_ecs_transform(registry)` + resolution spec (D7.2) + registry-backed level/kind (B) + golden behavior-preservation + membership/callsite guards + sensitive только validate/expose. Детали — `notes/ecs-logging/phase-2-design.md` |
+| 2026-06-18 | Compat `ecs_transform`/default lazy registry удалены после перевода тестов на explicit registry; runtime API остался `make_ecs_transform(registry)` |
+| 2026-06-18 | Уточнены неявные поведения Phase 2: outcome в taxonomy только policy, text-only runtime тоже валидирует registry, `trace` runtime level сворачивается в DEBUG, `event.kind` всегда резолвится sink-ом |

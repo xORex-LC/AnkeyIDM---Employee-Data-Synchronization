@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from connector.common.observability.events import EventKind, LogLevel
+from connector.infra.logging.constants import ECS_VERSION
 from connector.infra.logging.taxonomy import (
     TaxonomyLoadError,
     empty_observability_taxonomy,
@@ -53,6 +54,7 @@ def test_load_observability_taxonomy_maps_trace_level_to_debug_runtime_level() -
 def test_empty_observability_taxonomy_returns_degraded_registry() -> None:
     registry = empty_observability_taxonomy(reason="invalid yaml")
 
+    assert registry.ecs_version == ECS_VERSION
     assert registry.degraded_reason == "invalid yaml"
     assert registry.action("stage-completed") is None
     assert registry.default_level_for("stage-completed") is None

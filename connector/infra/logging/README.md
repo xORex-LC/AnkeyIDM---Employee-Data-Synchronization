@@ -9,7 +9,8 @@
 | Файл | Назначение |
 |---|---|
 | `runtime.py` | `StructuredLoggingRuntime`, `DailySizeRotatingFileHandler`, `bind_observability_context()` — structlog runtime с stderr/file sinks, human console text renderer и stdlib bridge для foreign-логов |
-| `ecs.py` | `make_ecs_transform(registry)` и compatibility `ecs_transform` — финальный JSON processor, который переводит короткие observability aliases в ECS/project dotted keys и отправляет неизвестные бизнес-поля в `labels.*` |
+| `constants.py` | Общие constants ECS logging runtime (`ECS_VERSION`, `SERVICE_NAME`) для renderer-а и taxonomy degraded registry |
+| `ecs.py` | `make_ecs_transform(registry)` — финальный JSON processor, который переводит короткие observability aliases в ECS/project dotted keys и отправляет неизвестные бизнес-поля в `labels.*` |
 | `taxonomy.py` | Pydantic loader/registry для machine-readable ECS logging taxonomy (`actions.yaml`, `fields/*.yaml`) |
 | `event_sink.py` | `StructlogObservabilityEventSink` — bridge `ObservabilityEvent` → native structlog logger; default `level`/`kind` берёт из taxonomy registry без знания о финальном ECS JSON |
 | `lifecycle.py` | `RuntimeLifecycleEventAdapter`, `PipelineLifecycleEventAdapter` — семантические adapters для command/run и pipeline stage lifecycle |
@@ -25,10 +26,16 @@
 - Lifecycle adapters эмитят semantic events: `level`/`kind` по умолчанию резолвит
   `StructlogObservabilityEventSink` через taxonomy registry. Исключение — `taxonomy-load-degraded`,
   где `WARNING` задаётся явно, потому что degraded registry пустой.
+- Event sink всегда передаёт `kind` в поля события: explicit `event.kind` → registry default →
+  fallback `event`. `outcome` не дефолтится, потому что это runtime-факт adapter-а.
+- `default_level: trace` в taxonomy исполняется как `DEBUG`: стандартный Python logging/structlog
+  runtime не имеет отдельного TRACE level.
 - JSON sinks проходят через единый processor из `make_ecs_transform(registry)` после exception normalization, redaction и cleanup processor meta; text/human sinks ECS-transform не используют.
 - Phase 2 вводит валидированный taxonomy registry: YAML читается на bootstrap/в тестах, а не как
-  произвольная логика call-site-ов. Bare `ecs_transform` оставлен только как compatibility/test
-  surface поверх default registry; runtime его напрямую не использует.
+  произвольная логика call-site-ов. `ecs.py` не держит default lazy registry; processor всегда
+  создаётся через `make_ecs_transform(registry)`.
+- Registry грузится и валидируется на bootstrap даже при text-only sinks: он нужен event sink-у
+  для `level`/`kind` defaults, а не только JSON ECS renderer-у.
 - Если registry не загружается, `strict_taxonomy=true` прерывает bootstrap понятным
   `TaxonomyLoadError` до настройки handlers. В non-strict режиме runtime использует empty
   degraded registry, сохраняет `taxonomy_degraded_reason` и orchestration эмитит один

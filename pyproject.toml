@@ -128,6 +128,26 @@ forbidden_modules = [
     "dependency_injector",
 ]
 
+[[tool.importlinter.contracts]]
+name = "observability artifacts do not depend on logging runtime"
+type = "forbidden"
+source_modules = [
+    "connector.infra.observability",
+]
+forbidden_modules = [
+    "connector.infra.logging",
+]
+
+[[tool.importlinter.contracts]]
+name = "logging runtime does not depend on observability artifacts"
+type = "forbidden"
+source_modules = [
+    "connector.infra.logging",
+]
+forbidden_modules = [
+    "connector.infra.observability",
+]
+
 # ── mypy ─────────────────────────────────────────────────────────────────────
 # Baseline-конфигурация с ratchet-стратегией: на старте НЕ включаем strict/
 # disallow_untyped_defs, чтобы не закрывать весь legacy одним махом. Гигиенические

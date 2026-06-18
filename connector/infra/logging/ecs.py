@@ -20,13 +20,8 @@ import json
 import re
 from typing import Any, Callable, Mapping
 
-from .taxonomy import (
-    ObservabilityTaxonomyRegistry,
-    load_observability_taxonomy,
-)
-
-ECS_VERSION = "8.11"
-SERVICE_NAME = "nexus-etl"
+from .constants import ECS_VERSION, SERVICE_NAME
+from .taxonomy import ObservabilityTaxonomyRegistry
 
 STRUCTURAL_ROOTS = frozenset(
     {
@@ -54,21 +49,6 @@ STRUCTURAL_ROOTS = frozenset(
 
 _LABEL_KEY_RE = re.compile(r"[^A-Za-z0-9_]+")
 EcsTransform = Callable[[Any, str, dict[str, Any]], dict[str, Any]]
-_DEFAULT_TAXONOMY_REGISTRY: ObservabilityTaxonomyRegistry | None = None
-
-
-def ecs_transform(
-    _logger: Any, _method_name: str, event_dict: dict[str, Any]
-) -> dict[str, Any]:
-    """Отрендерить событие через registry по умолчанию.
-
-    Runtime-контур должен использовать `make_ecs_transform(registry)`, чтобы registry
-    загружался на bootstrap и не читался из processor hot-path. Эта функция остаётся
-    совместимым API для unit-тестов и переходного кода.
-    """
-    return make_ecs_transform(_default_taxonomy_registry())(
-        _logger, _method_name, event_dict
-    )
 
 
 def make_ecs_transform(registry: ObservabilityTaxonomyRegistry) -> EcsTransform:
@@ -142,16 +122,6 @@ def _render_ecs_event(
     return rendered
 
 
-def field_aliases() -> dict[str, str]:
-    """Вернуть aliases из registry по умолчанию для совместимости старых тестов."""
-    return dict(_default_taxonomy_registry().field_aliases)
-
-
-def canonical_field_keys() -> frozenset[str]:
-    """Вернуть canonical field keys из registry по умолчанию."""
-    return _default_taxonomy_registry().canonical_field_keys
-
-
 def validate_field_name_for_event_contract(key: str) -> None:
     """Отклонить ECS structural roots и dotted keys в `ObservabilityEvent.fields`."""
     if "." in key:
@@ -162,13 +132,6 @@ def validate_field_name_for_event_contract(key: str) -> None:
         raise ValueError(
             f"ObservabilityEvent field key uses reserved structural root: {key}"
         )
-
-
-def _default_taxonomy_registry() -> ObservabilityTaxonomyRegistry:
-    global _DEFAULT_TAXONOMY_REGISTRY
-    if _DEFAULT_TAXONOMY_REGISTRY is None:
-        _DEFAULT_TAXONOMY_REGISTRY = load_observability_taxonomy()
-    return _DEFAULT_TAXONOMY_REGISTRY
 
 
 def _merge_error_fields(
@@ -254,9 +217,6 @@ def _logger_name(logger: Any) -> str:
 __all__ = [
     "ECS_VERSION",
     "STRUCTURAL_ROOTS",
-    "canonical_field_keys",
-    "ecs_transform",
-    "field_aliases",
     "make_ecs_transform",
     "validate_field_name_for_event_contract",
 ]

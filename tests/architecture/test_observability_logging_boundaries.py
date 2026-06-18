@@ -23,11 +23,13 @@ pytestmark = pytest.mark.architecture
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONNECTOR_ROOT = REPO_ROOT / "connector"
 COMMON_OBSERVABILITY_ROOT = CONNECTOR_ROOT / "common" / "observability"
+INFRA_LOGGING_ROOT = CONNECTOR_ROOT / "infra" / "logging"
+INFRA_OBSERVABILITY_ROOT = CONNECTOR_ROOT / "infra" / "observability"
 TAXONOMY_FIELDS_ROOT = COMMON_OBSERVABILITY_ROOT / "taxonomy" / "fields"
 TAXONOMY_ACTIONS_FILE = COMMON_OBSERVABILITY_ROOT / "taxonomy" / "actions.yaml"
 LOGGING_ADAPTER_ROOTS = (
-    CONNECTOR_ROOT / "infra" / "logging" / "lifecycle.py",
-    CONNECTOR_ROOT / "infra" / "logging" / "zones",
+    INFRA_LOGGING_ROOT / "lifecycle.py",
+    INFRA_LOGGING_ROOT / "zones",
 )
 CALLSITE_MAP_FILE = (
     REPO_ROOT
@@ -67,7 +69,7 @@ EXPECTED_STRUCTURAL_ROOTS = frozenset(
 ALLOWED_ECS_TRANSFORM_IMPORTS = {
     "connector/infra/logging/runtime.py",
 }
-ECS_TRANSFORM_APIS = frozenset({"ecs_transform", "make_ecs_transform"})
+ECS_TRANSFORM_APIS = frozenset({"make_ecs_transform"})
 KNOWN_USECASE_LOGGING_BACKEND_IMPORTS = frozenset(
     {
         "connector/usecases/management/vault/usecase.py: structlog",
@@ -254,6 +256,27 @@ def test_domain_does_not_import_logging_backend() -> None:
 
     assert violations == [], (
         "Domain must not import logging backend APIs:\n" + "\n".join(violations)
+    )
+
+
+def test_infra_logging_and_observability_artifacts_stay_decoupled() -> None:
+    violations: list[str] = []
+    boundaries = (
+        (INFRA_LOGGING_ROOT, "connector.infra.observability"),
+        (INFRA_OBSERVABILITY_ROOT, "connector.infra.logging"),
+    )
+    for root, forbidden_prefix in boundaries:
+        for path in _python_files(root):
+            rel = _rel(path)
+            for module in _imports(path):
+                if module == forbidden_prefix or module.startswith(
+                    f"{forbidden_prefix}."
+                ):
+                    violations.append(f"{rel}: {module}")
+
+    assert violations == [], (
+        "Logging runtime and observability artifact lifecycle must stay decoupled:\n"
+        + "\n".join(violations)
     )
 
 

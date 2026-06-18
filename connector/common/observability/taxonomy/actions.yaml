@@ -219,7 +219,7 @@ actions:
   zone: 01-runtime-cli-lifecycle
   bucket: milestone
   default_level: info
-  outcome: success
+  outcome: on_completion
   kind: event
   status: planned
   required_fields:
@@ -469,7 +469,7 @@ actions:
   zone: 05-enrich-subsystem
   bucket: milestone
   default_level: info
-  outcome: success
+  outcome: on_completion
   kind: event
   status: planned
   required_fields:
@@ -495,7 +495,7 @@ actions:
   zone: 05-enrich-subsystem
   bucket: decision
   default_level: warning
-  outcome: unknown
+  outcome: always
   kind: event
   status: planned
   required_fields:
@@ -818,7 +818,7 @@ actions:
   zone: 06-state-stores-and-providers
   bucket: decision
   default_level: warning
-  outcome: unknown
+  outcome: always
   kind: event
   status: planned
   required_fields:
