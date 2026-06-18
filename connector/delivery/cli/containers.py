@@ -251,6 +251,13 @@ def structured_logging_runtime_resource(
     runtime.close()
 
 
+def _logging_runtime_taxonomy_registry(runtime: StructuredLoggingRuntime):
+    registry = runtime.taxonomy_registry
+    if registry is None:
+        raise RuntimeError("Structured logging runtime has no observability taxonomy")
+    return registry
+
+
 def _observability_ledger_backend_name(app_config: AppConfig) -> str:
     """Вытащить имя ledger backend из app-config без логики внутри infra-слоя."""
     return app_config.observability.ledger.backend
@@ -1261,6 +1268,10 @@ class ObservabilityContainer(containers.DeclarativeContainer):
             ),
             runtime=logging_runtime,
             active_component=component,
+        ),
+        registry=providers.Callable(
+            _logging_runtime_taxonomy_registry,
+            runtime=logging_runtime,
         ),
     )
     runtime_lifecycle_events = providers.Factory(

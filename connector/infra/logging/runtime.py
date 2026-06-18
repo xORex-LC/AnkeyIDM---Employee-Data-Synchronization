@@ -364,6 +364,7 @@ class StructuredLoggingRuntime:
     handler_stack: StructlogHandlerStack
     redaction_engine: LogRedactionEngine
     runtime_meta: LoggingRuntimeMeta = LoggingRuntimeMeta()
+    taxonomy_registry: ObservabilityTaxonomyRegistry | None = None
     taxonomy_degraded_reason: str | None = None
 
     def get_logger(
@@ -480,6 +481,7 @@ def build_structured_logging_runtime(
         handler_stack=handler_stack,
         redaction_engine=redaction_engine,
         runtime_meta=runtime_meta,
+        taxonomy_registry=ecs_registry,
         taxonomy_degraded_reason=ecs_registry.degraded_reason
         if ecs_registry is not None
         else None,
@@ -678,12 +680,11 @@ def _load_ecs_registry(
 ) -> ObservabilityTaxonomyRegistry | None:
     """Загрузить taxonomy registry или вернуть degraded registry по policy.
 
-    Если JSON sinks не активны, registry не нужен. Strict mode поднимает
-    `TaxonomyLoadError` до настройки handler stack, чтобы bootstrap failure был
-    видимым до первого log event.
+    Registry нужен не только ECS renderer-у, но и event sink default-ам уровня
+    и kind. Strict mode поднимает `TaxonomyLoadError` до настройки handler stack,
+    чтобы bootstrap failure был видимым до первого log event.
     """
-    if not _has_json_sink(config):
-        return None
+    _ = config
     try:
         return load_observability_taxonomy()
     except TaxonomyLoadError as exc:

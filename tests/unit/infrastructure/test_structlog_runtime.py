@@ -301,11 +301,13 @@ def test_event_sink_preserves_exception_traceback_outside_except_frame(
     except RuntimeError as raised:
         exc = raised
 
+    assert runtime.taxonomy_registry is not None
     sink = StructlogObservabilityEventSink(
         logger=runtime.get_logger(
             ServiceComponent.PLANNER,
             logger_name="tests.runtime.exception.sink",
-        )
+        ),
+        registry=runtime.taxonomy_registry,
     )
     sink.emit(
         ObservabilityEvent(

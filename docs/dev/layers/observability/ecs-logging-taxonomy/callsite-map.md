@@ -82,7 +82,7 @@
 | runtime/orchestrator.py:1363–1388 | — | source preflight validation | `source-resolved` / `source-resolution-failed` | success/failure |
 | datasets/yaml_spec.py:59–80 | — | build CSV record source | `source-resolved` | success |
 | infra/sources/csv/reader.py | — | CSV iterator open/read/parse | `source-read-started` / `source-header-read` / `source-read-completed` / `source-read-failed` | success/failure |
-| infra/sources/csv/record_source.py | — | SourceRecord assembly from CSV raw rows | `source-record-assembled` | success |
+| infra/sources/csv/record_source.py | — | SourceRecord assembly from CSV raw rows | `source-record-read` | success |
 | domain/transform/core/extractor.py:31–44 | — | SourceRecord wrapped into TransformResult | `source-stream-wrapped` | success |
 | domain/transform/core/extractor.py:45–66 | — | source exception converted to SOURCE_ERROR | `source-stream-failed` | failure |
 

@@ -16,8 +16,14 @@ from connector.common.observability import (
 )
 from connector.infra.logging.event_sink import StructlogObservabilityEventSink
 from connector.infra.logging.lifecycle import RuntimeLifecycleEventAdapter
+from connector.infra.logging.taxonomy import (
+    empty_observability_taxonomy,
+    load_observability_taxonomy,
+)
 
 pytestmark = pytest.mark.unit
+
+_REGISTRY = load_observability_taxonomy()
 
 
 @dataclass
@@ -42,7 +48,7 @@ class _Logger:
 
 def test_event_sink_emits_event_contract_as_structlog_kwargs() -> None:
     logger = _Logger()
-    sink = StructlogObservabilityEventSink(logger=logger)
+    sink = StructlogObservabilityEventSink(logger=logger, registry=_REGISTRY)
 
     sink.emit(
         ObservabilityEvent(
@@ -74,7 +80,7 @@ def test_event_sink_emits_event_contract_as_structlog_kwargs() -> None:
 
 def test_event_sink_adds_manual_error_fields_and_exception_object() -> None:
     logger = _Logger()
-    sink = StructlogObservabilityEventSink(logger=logger)
+    sink = StructlogObservabilityEventSink(logger=logger, registry=_REGISTRY)
     exc = RuntimeError("boom")
 
     sink.emit(
@@ -100,6 +106,7 @@ def test_event_sink_adds_manual_error_fields_and_exception_object() -> None:
                 "error_type": "RuntimeError",
                 "error_message": "boom",
                 "error_code": "STAGE_FAILED",
+                "kind": "event",
                 "exc_info": exc,
             },
         )
@@ -108,7 +115,7 @@ def test_event_sink_adds_manual_error_fields_and_exception_object() -> None:
 
 def test_event_sink_rejects_dotted_event_fields() -> None:
     logger = _Logger()
-    sink = StructlogObservabilityEventSink(logger=logger)
+    sink = StructlogObservabilityEventSink(logger=logger, registry=_REGISTRY)
 
     with pytest.raises(ValueError):
         sink.emit(
@@ -123,7 +130,7 @@ def test_event_sink_rejects_dotted_event_fields() -> None:
 def test_runtime_lifecycle_taxonomy_degraded_warning_is_explicit() -> None:
     logger = _Logger()
     adapter = RuntimeLifecycleEventAdapter(
-        sink=StructlogObservabilityEventSink(logger=logger)
+        sink=StructlogObservabilityEventSink(logger=logger, registry=_REGISTRY)
     )
 
     adapter.taxonomy_load_degraded(reason="broken\n taxonomy")
@@ -141,3 +148,84 @@ def test_runtime_lifecycle_taxonomy_degraded_warning_is_explicit() -> None:
             },
         )
     ]
+
+
+def test_event_sink_uses_registry_defaults_when_event_omits_level_and_kind() -> None:
+    logger = _Logger()
+    sink = StructlogObservabilityEventSink(logger=logger, registry=_REGISTRY)
+
+    sink.emit(
+        ObservabilityEvent(
+            action="stage-completed",
+            message="Pipeline stage completed",
+            fields={"stage_name": "match"},
+        )
+    )
+
+    assert logger.calls == [
+        (
+            "info",
+            "Pipeline stage completed",
+            {
+                "action": "stage-completed",
+                "stage_name": "match",
+                "kind": "metric",
+            },
+        )
+    ]
+
+
+def test_event_sink_explicit_level_and_kind_win_over_registry_defaults() -> None:
+    logger = _Logger()
+    sink = StructlogObservabilityEventSink(logger=logger, registry=_REGISTRY)
+
+    sink.emit(
+        ObservabilityEvent(
+            action="stage-completed",
+            message="Pipeline stage completed",
+            level=LogLevel.WARNING,
+            kind=EventKind.EVENT,
+        )
+    )
+
+    assert logger.calls == [
+        (
+            "warning",
+            "Pipeline stage completed",
+            {
+                "action": "stage-completed",
+                "kind": "event",
+            },
+        )
+    ]
+
+
+def test_event_sink_unknown_action_falls_back_to_info_event_kind() -> None:
+    logger = _Logger()
+    sink = StructlogObservabilityEventSink(
+        logger=logger, registry=empty_observability_taxonomy(reason="empty")
+    )
+
+    sink.emit(ObservabilityEvent(action="unknown-action", message="Unknown action"))
+
+    assert logger.calls == [
+        (
+            "info",
+            "Unknown action",
+            {
+                "action": "unknown-action",
+                "kind": "event",
+            },
+        )
+    ]
+
+
+def test_event_sink_does_not_inject_outcome_when_event_omits_it() -> None:
+    logger = _Logger()
+    sink = StructlogObservabilityEventSink(logger=logger, registry=_REGISTRY)
+
+    sink.emit(ObservabilityEvent(action="run-completed", message="Run completed"))
+
+    _, _, fields = logger.calls[0]
+    assert fields["kind"] == "event"
+    assert "outcome" not in fields

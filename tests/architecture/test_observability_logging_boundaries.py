@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,21 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CONNECTOR_ROOT = REPO_ROOT / "connector"
 COMMON_OBSERVABILITY_ROOT = CONNECTOR_ROOT / "common" / "observability"
 TAXONOMY_FIELDS_ROOT = COMMON_OBSERVABILITY_ROOT / "taxonomy" / "fields"
+TAXONOMY_ACTIONS_FILE = COMMON_OBSERVABILITY_ROOT / "taxonomy" / "actions.yaml"
+LOGGING_ADAPTER_ROOTS = (
+    CONNECTOR_ROOT / "infra" / "logging" / "lifecycle.py",
+    CONNECTOR_ROOT / "infra" / "logging" / "zones",
+)
+CALLSITE_MAP_FILE = (
+    REPO_ROOT
+    / "docs"
+    / "dev"
+    / "layers"
+    / "observability"
+    / "ecs-logging-taxonomy"
+    / "callsite-map.md"
+)
+ACTION_LITERAL_RE = re.compile(r"`([a-z0-9]+(?:-[a-z0-9]+)*)`")
 
 EXPECTED_STRUCTURAL_ROOTS = frozenset(
     {
@@ -94,6 +110,49 @@ def _field_entries() -> list[tuple[Path, dict[str, Any]]]:
         payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         entries.extend((path, entry) for entry in payload.get("fields") or ())
     return entries
+
+
+def _action_names() -> frozenset[str]:
+    payload = yaml.safe_load(TAXONOMY_ACTIONS_FILE.read_text(encoding="utf-8")) or {}
+    return frozenset(str(entry["name"]) for entry in payload.get("actions") or ())
+
+
+def _logging_adapter_files() -> list[Path]:
+    files: list[Path] = []
+    for root in LOGGING_ADAPTER_ROOTS:
+        if root.is_file():
+            files.append(root)
+        elif root.is_dir():
+            files.extend(_python_files(root))
+    return sorted(files)
+
+
+def _observability_event_action_literals(path: Path) -> list[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    actions: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if not isinstance(func, ast.Name) or func.id != "ObservabilityEvent":
+            continue
+        for keyword in node.keywords:
+            if keyword.arg == "action" and isinstance(keyword.value, ast.Constant):
+                if isinstance(keyword.value.value, str):
+                    actions.append(keyword.value.value)
+    return actions
+
+
+def _callsite_map_actions() -> frozenset[str]:
+    actions: set[str] = set()
+    for line in CALLSITE_MAP_FILE.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("|") or "`" not in line:
+            continue
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if len(cells) < 4:
+            continue
+        actions.update(ACTION_LITERAL_RE.findall(cells[3]))
+    return frozenset(actions)
 
 
 def test_event_contracts_live_in_common_observability() -> None:
@@ -194,4 +253,41 @@ def test_taxonomy_field_aliases_are_short_unique_names() -> None:
 
     assert violations == [], (
         "taxonomy aliases must be short, unique names:\n" + "\n".join(violations)
+    )
+
+
+def test_logging_adapter_actions_exist_in_taxonomy() -> None:
+    known_actions = _action_names()
+    violations: list[str] = []
+    for path in _logging_adapter_files():
+        for action in _observability_event_action_literals(path):
+            if action not in known_actions:
+                violations.append(f"{_rel(path)}: {action}")
+
+    assert violations == [], (
+        "ObservabilityEvent action literals in logging adapters must exist in "
+        "actions.yaml:\n"
+        + "\n".join(violations)
+    )
+
+
+def test_logging_adapters_do_not_import_taxonomy_registry() -> None:
+    violations: list[str] = []
+    for path in _logging_adapter_files():
+        for module in _imports(path):
+            if module == "connector.infra.logging.taxonomy":
+                violations.append(f"{_rel(path)}: {module}")
+
+    assert violations == [], (
+        "Logging adapters must stay semantic and must not import taxonomy registry:\n"
+        + "\n".join(violations)
+    )
+
+
+def test_callsite_map_actions_are_subset_of_taxonomy_actions() -> None:
+    unknown = sorted(_callsite_map_actions() - _action_names())
+
+    assert unknown == [], (
+        "callsite-map.md must not reference actions absent from actions.yaml:\n"
+        + "\n".join(unknown)
     )

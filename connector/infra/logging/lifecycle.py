@@ -18,7 +18,6 @@ from __future__ import annotations
 from typing import Mapping
 
 from connector.common.observability.events import (
-    EventKind,
     EventOutcome,
     LogFieldValue,
     LogLevel,
@@ -44,8 +43,6 @@ class RuntimeLifecycleEventAdapter(RuntimeLifecycleEvents):
                 action="run-started",
                 message="Command started",
                 fields={"scope": "core", "command_name": command_name},
-                level=LogLevel.INFO,
-                kind=EventKind.EVENT,
             )
         )
 
@@ -61,9 +58,7 @@ class RuntimeLifecycleEventAdapter(RuntimeLifecycleEvents):
                 action="run-completed",
                 message="Command completed",
                 fields={"scope": "core", "command_name": command_name},
-                level=LogLevel.INFO,
                 outcome=EventOutcome.SUCCESS if success else EventOutcome.FAILURE,
-                kind=EventKind.EVENT,
                 duration_ns=duration_ns,
             )
         )
@@ -76,7 +71,6 @@ class RuntimeLifecycleEventAdapter(RuntimeLifecycleEvents):
                 fields={"scope": "observability", "reason": _safe_reason(reason)},
                 level=LogLevel.WARNING,
                 outcome=EventOutcome.FAILURE,
-                kind=EventKind.EVENT,
             )
         )
 
@@ -93,8 +87,6 @@ class PipelineLifecycleEventAdapter(PipelineLifecycleEvents):
                 action="stage-started",
                 message="Pipeline stage started",
                 fields={"stage_name": stage_name},
-                level=LogLevel.INFO,
-                kind=EventKind.EVENT,
             )
         )
 
@@ -113,9 +105,7 @@ class PipelineLifecycleEventAdapter(PipelineLifecycleEvents):
                 action="stage-completed",
                 message="Pipeline stage completed",
                 fields=fields,
-                level=LogLevel.INFO,
                 outcome=EventOutcome.SUCCESS,
-                kind=EventKind.METRIC,
                 duration_ns=duration_ns,
             )
         )
@@ -132,9 +122,7 @@ class PipelineLifecycleEventAdapter(PipelineLifecycleEvents):
                 action="stage-failed",
                 message="Pipeline stage failed",
                 fields={"stage_name": stage_name},
-                level=LogLevel.ERROR,
                 outcome=EventOutcome.FAILURE,
-                kind=EventKind.EVENT,
                 duration_ns=duration_ns,
                 error=ObservabilityError(
                     type=type(exc).__name__,
@@ -150,9 +138,7 @@ class PipelineLifecycleEventAdapter(PipelineLifecycleEvents):
                 action="stage-aborted",
                 message="Pipeline stage aborted",
                 fields={"stage_name": stage_name},
-                level=LogLevel.DEBUG,
                 outcome=EventOutcome.UNKNOWN,
-                kind=EventKind.EVENT,
                 duration_ns=duration_ns,
             )
         )
